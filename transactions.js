@@ -4,7 +4,7 @@
 const PORTFOLIO_KEY = 'tefasPortfolio';
 
 // --- State ---
-let portfolio = loadPortfolio();
+let portfolio = [];
 let dashboardSort = { col: 'code', dir: 'asc' };
 let weightChartInstance = null;
 let pnlChartInstance = null;
@@ -515,7 +515,16 @@ function attachTransactionListeners() {
 }
 
 function updateSummary(rows, data) {
-    document.getElementById('pf-total-funds').textContent = portfolio.length;
+    // Aggregate by code to find holdings (net lots)
+    const aggLots = {};
+    portfolio.forEach(e => {
+        if (!aggLots[e.code]) aggLots[e.code] = 0;
+        aggLots[e.code] += (e.lots * (e.type === 'AL' ? 1 : -1));
+    });
+
+    // Count funds with positive balance
+    const heldFundsCount = Object.values(aggLots).filter(lots => lots > 0.0001).length;
+    document.getElementById('pf-total-funds').textContent = heldFundsCount;
 
     // --- Calculate Grand Total Realized Profit ---
     let totalRealized = 0;
@@ -541,13 +550,6 @@ function updateSummary(rows, data) {
     realizedEl.textContent = `₺${fmtNum(totalRealized)}`;
     realizedEl.className = `summary-value ${totalRealized > 0 ? 'val-up' : totalRealized < 0 ? 'val-down' : 'val-neutral'}`;
 
-    // Aggregate by code to find holdings with lots > 1 for "Toplam Yatırım"
-    const aggLots = {};
-    portfolio.forEach(e => {
-        if (!aggLots[e.code]) aggLots[e.code] = 0;
-        aggLots[e.code] += (e.lots * (e.type === 'AL' ? 1 : -1));
-    });
-
     if (portfolio.length === 0) {
         document.getElementById('pf-total-investment').textContent = '₺0.00';
         document.getElementById('pf-total-cost').textContent = '₺0.00';
@@ -559,7 +561,7 @@ function updateSummary(rows, data) {
     let totalRequestedInvestment = 0;
     Object.keys(aggLots).forEach(code => {
         const netLots = aggLots[code];
-        if (netLots > 1) {
+        if (netLots > 0.0001) {
             const liveRow = data.find(r => r[0] === code);
             const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
             totalRequestedInvestment += (netLots * currentPrice);
@@ -614,21 +616,56 @@ function fmtPercent(val) {
 }
 
 // --- Persistence ---
-function loadPortfolio() {
+async function loadPortfolio() {
     try {
-        return JSON.parse(localStorage.getItem(PORTFOLIO_KEY)) || [];
+        // Try to get from Server first
+        const response = await fetch('/api/local-portfolio');
+        if (response.ok) {
+            const serverData = await response.json();
+            if (serverData && Array.isArray(serverData)) {
+                portfolio = serverData;
+                localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
+                return portfolio;
+            }
+        }
+    } catch (e) {
+        console.warn('Backend connection failed, using localStorage');
+    }
+
+    try {
+        const local = JSON.parse(localStorage.getItem(PORTFOLIO_KEY)) || [];
+        portfolio = local;
+        return local;
     } catch { return []; }
 }
 
-function savePortfolio() {
+async function savePortfolio() {
+    // Save to localStorage
     localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
+
+    // Save to Server
+    try {
+        await fetch('/api/local-portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(portfolio)
+        });
+    } catch (e) {
+        console.error('Failed to sync with backend');
+    }
+}
+
+// Custom async initialization
+async function initApp() {
+    await loadPortfolio();
+    updateBadge();
+    initDashboardSorting();
+    renderDashboard();
 }
 
 // --- Initialization ---
 window.addEventListener('DOMContentLoaded', () => {
-    updateBadge();
-    initDashboardSorting();
-    renderDashboard(); // Default tab is now dashboard
+    initApp();
 });
 
 function initDashboardSorting() {
@@ -853,4 +890,179 @@ function getAggregatedData(data) {
             yil1: liveRow ? liveRow[8] : null
         };
     });
+}
+
+// ===== IMPORT FUNCTIONALITY =====
+
+// Toggle import dropdown
+const importDropdown = document.getElementById('import-dropdown');
+const importTriggerBtn = document.getElementById('import-trigger-btn');
+if (importTriggerBtn && importDropdown) {
+    importTriggerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        importDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!importDropdown.contains(e.target)) {
+            importDropdown.classList.remove('open');
+        }
+    });
+}
+
+// Download CSV Template
+document.getElementById('import-download-template')?.addEventListener('click', () => {
+    importDropdown?.classList.remove('open');
+
+    // Template headers and example rows
+    const headers = ['TIP', 'KOD', 'LOT', 'BIRIM_FIYAT', 'TARIH'];
+    const examples = [
+        ['AL', 'GAF', '100', '1.2500', '2024-01-15'],
+        ['AL', 'AFT', '250', '0.8750', '2024-02-01'],
+        ['SAT', 'GAF', '50', '1.5000', '2024-03-10'],
+    ];
+
+    const csvContent = [headers, ...examples]
+        .map(row => row.join(';'))
+        .join('\r\n');
+
+    const BOM = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'TEFAS_Islemler_Sablonu.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// Trigger file picker
+document.getElementById('import-upload-btn')?.addEventListener('click', () => {
+    importDropdown?.classList.remove('open');
+    document.getElementById('import-file-input')?.click();
+});
+
+// Handle file selection & parse
+document.getElementById('import-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const text = evt.target.result.replace(/^\uFEFF/, ''); // Strip BOM
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+
+            if (lines.length < 2) {
+                showImportStatus('Dosya boş veya geçersiz format.', 'error');
+                return;
+            }
+
+            // Detect delimiter
+            const firstLine = lines[0];
+            const delimiter = firstLine.includes(';') ? ';' : ',';
+
+            const headerLine = lines[0].split(delimiter).map(h => h.trim().toUpperCase());
+            const colTip = headerLine.indexOf('TIP');
+            const colKod = headerLine.indexOf('KOD');
+            const colLot = headerLine.indexOf('LOT');
+            const colFiyat = headerLine.indexOf('BIRIM_FIYAT');
+            const colTarih = headerLine.indexOf('TARIH');
+
+            if ([colTip, colKod, colLot, colFiyat, colTarih].some(c => c === -1)) {
+                showImportStatus('Başlık satırı hatalı. Beklenen sütunlar: TIP, KOD, LOT, BIRIM_FIYAT, TARIH', 'error');
+                return;
+            }
+
+            let imported = 0;
+            let skipped = 0;
+            const errors = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(delimiter).map(c => c.trim());
+                if (cols.length < 2) continue; // Skip empty rows
+
+                const tip = cols[colTip]?.toUpperCase();
+                const kod = cols[colKod]?.toUpperCase();
+                const lot = parseFloat(cols[colLot]?.replace(',', '.'));
+                const fiyat = parseFloat(cols[colFiyat]?.replace(',', '.'));
+                const tarih = cols[colTarih];
+
+                // Validations
+                if (!tip || (tip !== 'AL' && tip !== 'SAT')) {
+                    errors.push(`Satır ${i + 1}: Geçersiz TIP ("${tip}"). AL veya SAT olmalı.`);
+                    skipped++;
+                    continue;
+                }
+                if (!kod || kod.length < 2) {
+                    errors.push(`Satır ${i + 1}: Geçersiz KOD.`);
+                    skipped++;
+                    continue;
+                }
+                if (isNaN(lot) || lot <= 0) {
+                    errors.push(`Satır ${i + 1}: Geçersiz LOT değeri.`);
+                    skipped++;
+                    continue;
+                }
+                if (isNaN(fiyat) || fiyat <= 0) {
+                    errors.push(`Satır ${i + 1}: Geçersiz BIRIM_FIYAT değeri.`);
+                    skipped++;
+                    continue;
+                }
+                if (!tarih || !/^\d{4}-\d{2}-\d{2}$/.test(tarih)) {
+                    errors.push(`Satır ${i + 1}: Geçersiz TARIH formatı. YYYY-AA-GG olmalı.`);
+                    skipped++;
+                    continue;
+                }
+
+                // Look up fund name from fullData if available
+                const liveData = window.fullData || [];
+                const liveRow = liveData.find(r => r[0] === kod);
+                const name = liveRow ? liveRow[1] : kod;
+
+                portfolio.push({
+                    id: Date.now() + i,
+                    code: kod,
+                    name: name,
+                    lots: lot,
+                    buyPrice: fiyat,
+                    buyDate: tarih,
+                    type: tip
+                });
+                imported++;
+            }
+
+            await savePortfolio();
+            updateBadge();
+
+            // Refresh active tab
+            if (document.getElementById('tab-portfolio').classList.contains('active')) renderPortfolio();
+            if (document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard();
+
+            let msg = `${imported} işlem başarıyla içe aktarıldı.`;
+            if (skipped > 0) msg += ` ${skipped} satır atlandı.`;
+            if (errors.length > 0) msg += `\n\nHatalar:\n` + errors.slice(0, 5).join('\n');
+            showImportStatus(msg, imported > 0 ? 'success' : 'error');
+
+        } catch (err) {
+            console.error('Import error:', err);
+            showImportStatus('Dosya okunurken hata oluştu: ' + err.message, 'error');
+        } finally {
+            // Reset file input so same file can be re-selected
+            e.target.value = '';
+        }
+    };
+    reader.readAsText(file, 'UTF-8');
+});
+
+function showImportStatus(message, type) {
+    const el = document.getElementById('status-message');
+    if (!el) { alert(message); return; }
+    el.textContent = message;
+    el.className = 'status-message ' + (type === 'success' ? 'status-success' : 'status-error');
+    // Scroll to top
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => {
+        el.className = 'status-message';
+        el.textContent = '';
+    }, 6000);
 }

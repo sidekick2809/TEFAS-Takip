@@ -36,17 +36,64 @@ Projeyi yerel bilgisayarınızda çalıştırmak için aşağıdaki adımları i
 3.  **Tarayıcıda Açın:**
     Terminalde belirtilen adresi (genellikle `http://localhost:5173`) tarayıcınızda açın.
 
+## 🐳 Docker ile Çalıştırma
+
+Uygulamayı Docker konteyneri içerisinde çalıştırmak için aşağıdaki komutları kullanabilirsiniz:
+
+1.  **İmajı Oluşturun:**
+    ```bash
+    docker build -t tefas-takip .
+    ```
+
+2.  **Konteyneri Başlatın:**
+    ```bash
+    docker run -d -p 8080:80 --name tefas-app tefas-takip
+    ```
+
+3.  **Veri Kalıcılığı ile Başlatın (Önerilen):**
+    Portföy verilerinizin silinmemesi için `data` klasörünü dışarıya bağlamanız önerilir:
+    ```bash
+    docker run -d \
+      -p 8080:80 \
+      -v $(pwd)/data:/app/data \
+      --name tefas-app \
+      tefas-takip
+    ```
+
+### 🛠 Docker Compose (Daha Kolay Yol)
+
+Eğer Docker Compose yüklü ise, sadece şu komutu çalıştırarak uygulamayı ayağa kaldırabilirsiniz:
+
+```bash
+docker-compose up -d
+```
+
+Bu komut hem imajı oluşturur, hem de veri klasörünü otomatik olarak bağlayarak uygulamayı `8080` portunda başlatır.
+
+4.  **Erişim:**
+    Tarayıcınızdan `http://localhost:8080` adresine giderek uygulamaya erişebilirsiniz.
+
+
+
 ## 📁 Dosya Yapısı
 
 - `index.html`: Uygulamanın ana yapısı ve modal tanımları.
 - `main.js`: Temel veri çekme, filtreleme ve genel uygulama mantığı.
 - `transactions.js`: Portföy hesaplamaları, grafik işlemleri ve CRUD operasyonları.
+- `server.js`: Docker ve yerel kullanım için Express tabanlı API ve static dosya sunucusu.
+- `Dockerfile` & `docker-compose.yml`: Konteynerlaştırma yapılandırmaları.
 - `style.css`: Modern, responsive ve temalı tasarım sistemi.
 - `package.json`: Proje bağımlılıkları ve scriptler.
 
+
 ## 💾 Veri Saklama
 
-Uygulama, verilerinizi ve portföy bilgilerinizi tarayıcınızın `localStorage` alanında güvenli bir şekilde saklar. Sunucu tarafında herhangi bir veri tutulmaz, verileriniz tamamen sizin cihazınızdadır.
+Uygulama, verilerinizi iki katmanlı olarak saklar:
+1.  **Tarayıcı (Local Storage):** Çevrimdışı kullanım ve hızlı erişim için tarayıcınızda tutulur.
+2.  **Sunucu (JSON Dosyası):** Docker veya Node.js ile çalıştırıldığında `data/portfolio.json` dosyasında saklanır. Bu sayede farklı tarayıcılardan eriştiğinizde verileriniz senkronize kalır.
+
+Docker ile kullanımda veri kaybını önlemek için `data` klasörünü volume olarak bağlamanız (yukarıdaki Docker talimatlarında belirtildiği gibi) önemlidir.
+
 
 ## 📄 Lisans
 

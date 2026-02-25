@@ -215,7 +215,7 @@
                 <th data-sort="currentValue" class="sortable">GÜNCEL DEĞER</th>
                 <th data-sort="pnl" class="sortable">KAR / ZARAR</th>
                 <th data-sort="pnlPct" class="sortable">K/Z %</th>
-                <th data-sort="realizedProfit" class="sortable">SATIŞ KARI</th>
+                <th data-sort="realizedProfit" class="sortable">Gerçekleşen<br>Kar</th>
                 <th data-sort="totalProfit" class="sortable">TOPLAM KAR</th>
                 <th data-sort="g1" class="sortable advanced-hidden">1G %</th>
                 <th data-sort="h1" class="sortable advanced-hidden">1H %</th>
@@ -370,10 +370,49 @@
       <div id="tab-portfolio" class="tab-panel">
         <div id="portfolio-content">
           <!-- Add Fund Panel -->
+          <!-- Hidden file input for import -->
+          <input type="file" id="import-file-input" accept=".csv" style="display:none;">
+
           <div class="portfolio-add-panel fade-in">
             <div class="add-panel-header">
-              <h3>Fon Ekle</h3>
-              <p class="add-panel-hint">Portföyünüze bir fon eklemek için aşağıdan seçin.</p>
+              <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                <div>
+                  <h3>Fon Ekle</h3>
+                  <p class="add-panel-hint">Portföyünüze bir fon eklemek için aşağıdan seçin.</p>
+                </div>
+                <!-- Import Dropdown -->
+                <div class="export-dropdown" id="import-dropdown">
+                  <button class="icon-btn has-tooltip" data-tooltip="Toplu İçe Aktar" id="import-trigger-btn"
+                    title="Toplu İçe Aktar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </button>
+                  <div class="export-menu" style="right:0; left:auto; min-width:180px;">
+                    <button id="import-download-template" class="export-menu-item">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      Şablon İndir (CSV)
+                    </button>
+                    <button id="import-upload-btn" class="export-menu-item">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                      </svg>
+                      Dosya Yükle (CSV)
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="add-fund-form">
               <div class="form-group">

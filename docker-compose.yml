@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  tefas-app:
+    build: .
+    image: tefas-takip
+    container_name: tefas-app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

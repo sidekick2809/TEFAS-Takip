@@ -748,31 +748,31 @@ tr.stale-row td {
 /* --- Portfolio Summary --- */
 .portfolio-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.125rem;
+  margin-bottom: 1.5rem;
 }
 
 .summary-card {
   background: var(--card-bg);
-  padding: 1.5rem;
+  padding: 1.125rem;
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .summary-icon {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   background: rgba(99, 102, 241, 0.1);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.125rem;
 }
 
 .summary-info {
@@ -781,16 +781,16 @@ tr.stale-row td {
 }
 
 .summary-label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   font-weight: 500;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .summary-value {
-  font-size: 1.35rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-main);
 }
