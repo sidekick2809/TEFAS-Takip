@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEFAS FONLARI</title>
+  <!-- Use Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <script>
+    if (localStorage.getItem('tefasTheme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  </script>
+</head>
+
+<body>
+  <div id="global-overlay" class="global-overlay" style="display: none;">
+    <div class="loader-spinner large-spinner"></div>
+    <p>İşleniyor...</p>
+  </div>
+  <!-- App structure here, with dynamic loading state, stunning UI... -->
+  <div class="app-container">
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <path d="M2 17L12 22L22 17" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <path d="M2 12L12 17L22 12" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          <h1>TEFAS FONLARI</h1>
+        </div>
+        <p class="subtitle">Fonlarınızı gerçek zamanlı olarak izleyin ve analiz edin.</p>
+      </div>
+      <div class="header-actions">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="theme-toggle" class="icon-btn theme-toggle" title="Tema Değiştir">
+            <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              style="display: none;">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button id="fetch-btn" class="primary-btn">
+            <span class="btn-text">Verileri Güncelle</span>
+            <div class="loader-spinner" style="display: none;"></div>
+          </button>
+        </div>
+        <div id="last-update" class="last-update-text"></div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div id="status-message" class="status-message"></div>
+
+      <div class="toolbar fade-in">
+        <div class="filter-group">
+          <label>Tür:</label>
+          <div class="multi-select" id="tur-select">
+            <div class="multi-select-trigger">
+              <span class="multi-select-text">Tümü Seçili</span>
+              <div class="arrow"></div>
+            </div>
+            <div class="multi-select-dropdown">
+              <div class="multi-select-options" id="tur-options">
+              </div>
+            </div>
+          </div>
+
+          <label>TUR-C:</label>
+          <div class="multi-select" id="turc-select">
+            <div class="multi-select-trigger">
+              <span class="multi-select-text">Tümü Seçili</span>
+              <div class="arrow"></div>
+            </div>
+            <div class="multi-select-dropdown">
+              <div class="multi-select-options" id="turc-options">
+              </div>
+            </div>
+          </div>
+
+          <label>ŞİRKET:</label>
+          <div class="multi-select" id="sirket-select">
+            <div class="multi-select-trigger">
+              <span class="multi-select-text">Tümü Seçili</span>
+              <div class="arrow"></div>
+            </div>
+            <div class="multi-select-dropdown">
+              <div class="multi-select-options" id="sirket-options">
+              </div>
+            </div>
+          </div>
+
+          <label>TEFAS:</label>
+          <select id="tefas-status-filter" class="custom-select">
+            <option value="ALL">Hepsi</option>
+            <option value="EVET" selected>İşleme Açık</option>
+            <option value="HAYIR">İşleme Kapalı</option>
+          </select>
+
+          <button id="apply-filter-btn" class="secondary-btn">Uygula</button>
+          <button id="reset-filter-btn" class="secondary-btn outline">Varsayılan</button>
+
+          <button id="toggle-cols-btn" class="secondary-btn outline" style="margin-left: auto;">Detayları
+            Göster</button>
+        </div>
+      </div>
+
+      <div class="table-container fade-in advanced-hidden">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th>KOD</th>
+              <th>UNVAN</th>
+              <th>1G %</th>
+              <th>1H %</th>
+              <th>1AY</th>
+              <th>3AY</th>
+              <th>6AY</th>
+              <th>YBB</th>
+              <th>1YIL</th>
+              <th>3YIL</th>
+              <th>5YIL</th>
+              <th>TÜR</th>
+              <th>TUR-C</th>
+              <th>ŞİRKET</th>
+              <th>TEFAS</th>
+              <th>FIYAT</th>
+              <th>FIYAT1</th>
+              <th>FIYAT7</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr>
+              <td colspan="18" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

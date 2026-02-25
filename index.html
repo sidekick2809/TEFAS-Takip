@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEFAS</title>
+  <!-- Use Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    if (localStorage.getItem('tefasTheme') === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  </script>
+</head>
+
+<body>
+  <div id="global-overlay" class="global-overlay" style="display: none;">
+    <div class="loader-spinner large-spinner"></div>
+    <p>İşleniyor...</p>
+  </div>
+  <!-- App structure here, with dynamic loading state, stunning UI... -->
+  <div class="app-container">
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <path d="M2 17L12 22L22 17" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+            <path d="M2 12L12 17L22 12" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          <h1>TEFAS</h1>
+        </div>
+        <p class="subtitle">Fonlarınızı gerçek zamanlı olarak izleyin ve analiz edin.</p>
+      </div>
+      <div class="header-actions">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="theme-toggle" class="icon-btn theme-toggle" title="Tema Değiştir">
+            <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              style="display: none;">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <button id="settings-btn" class="icon-btn" title="Tarih Ayarları">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
+            </svg>
+          </button>
+          <button id="fetch-btn" class="primary-btn">
+            <span class="btn-text">Verileri Güncelle</span>
+            <div class="loader-spinner" style="display: none;"></div>
+          </button>
+        </div>
+        <div id="last-update" class="last-update-text"></div>
+      </div>
+    </header>
+
+    <!-- TAB Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="tab-dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+        Dashboard
+      </button>
+      <button class="tab-btn" data-tab="tab-veriler">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7" />
+          <line x1="16" y1="5" x2="16" y2="9" />
+          <line x1="8" y1="5" x2="8" y2="9" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <path d="M16 19h6" />
+          <path d="M19 16l3 3-3 3" />
+        </svg>
+        Veriler
+      </button>
+      <button class="tab-btn" data-tab="tab-portfolio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+          <line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+        İşlemler
+        <span id="portfolio-count-badge" class="tab-badge" style="display:none;">0</span>
+      </button>
+    </nav>
+
+    <main class="main-content">
+      <div id="status-message" class="status-message"></div>
+
+      <!-- TAB: DASHBOARD -->
+      <div id="tab-dashboard" class="tab-panel active">
+        <!-- Portfolio Summary Cards -->
+        <div class="summary-bracket-wrapper fade-in">
+          <div class="summary-bracket-title">ÖZET</div>
+          <div class="portfolio-summary" id="portfolio-summary">
+            <div class="summary-card">
+              <div class="summary-icon">📊</div>
+              <div class="summary-info">
+                <span class="summary-label">Toplam Fon</span>
+                <span class="summary-value" id="pf-total-funds">0</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">💰</div>
+              <div class="summary-info">
+                <span class="summary-label">Toplam Yatırım</span>
+                <span class="summary-value" id="pf-total-investment">₺0.00</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">🧾</div>
+              <div class="summary-info">
+                <span class="summary-label">Maliyet</span>
+                <span class="summary-value" id="pf-total-cost">₺0.00</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">📈</div>
+              <div class="summary-info">
+                <span class="summary-label">Günlük Değişim</span>
+                <span class="summary-value" id="pf-daily-change">-</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">🏆</div>
+              <div class="summary-info">
+                <span class="summary-label">Toplam Kar Zarar</span>
+                <span class="summary-value" id="pf-total-pnl">-</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">💎</div>
+              <div class="summary-info">
+                <span class="summary-label">Gerçekleşen Kar</span>
+                <span class="summary-value" id="pf-realized-profit">₺0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar fade-in"
+          style="justify-content: flex-end; margin-bottom: 1rem; margin-top: 1rem; gap: 0.5rem; flex-wrap: wrap;">
+          <div class="export-dropdown" style="margin-right: auto;">
+            <button class="secondary-btn outline export-trigger-btn has-tooltip" data-tooltip="Dışa Aktar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+            <div class="export-menu">
+              <button id="export-dashboard-csv" class="export-menu-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                CSV (Noktalı Virgül)
+              </button>
+              <button id="export-dashboard-xls" class="export-menu-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+                Excel (XLS)
+              </button>
+            </div>
+          </div>
+          <button id="dashboard-toggle-btn" class="secondary-btn outline">Detayları Göster</button>
+        </div>
+
+        <!-- Dashboard Per-Fund Table -->
+        <div id="dashboard-table-container" class="table-container fade-in advanced-hidden">
+          <table id="dashboard-table">
+            <thead>
+              <tr id="dashboard-header-row">
+                <th data-sort="code" class="sortable">KOD</th>
+                <th data-sort="name" class="sortable">UNVAN</th>
+                <th data-sort="currentPrice" class="sortable">GÜNCEL FİYAT</th>
+                <th data-sort="totalLots" class="sortable">LOT SAYISI</th>
+                <th data-sort="avgCost" class="sortable">BİRİM MALİYET</th>
+                <th data-sort="currentValue" class="sortable">GÜNCEL DEĞER</th>
+                <th data-sort="pnl" class="sortable">KAR / ZARAR</th>
+                <th data-sort="pnlPct" class="sortable">K/Z %</th>
+                <th data-sort="realizedProfit" class="sortable">SATIŞ KARI</th>
+                <th data-sort="totalProfit" class="sortable">TOPLAM KAR</th>
+                <th data-sort="g1" class="sortable advanced-hidden">1G %</th>
+                <th data-sort="h1" class="sortable advanced-hidden">1H %</th>
+                <th data-sort="ay3" class="sortable advanced-hidden">3AY %</th>
+                <th data-sort="yil1" class="sortable advanced-hidden">1YIL %</th>
+                <th data-sort="currentValue" class="sortable">AĞIRLIK</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-body">
+              <!-- Dynamically filled -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid fade-in">
+          <div class="chart-container-card">
+            <h3>Portföy Ağırlıkları</h3>
+            <div class="canvas-wrapper">
+              <canvas id="weight-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-container-card">
+            <h3>Kâr / Zarar Durumu</h3>
+            <div class="canvas-wrapper">
+              <canvas id="pnl-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: VERİLER -->
+      <div id="tab-veriler" class="tab-panel">
+        <div class="toolbar fade-in">
+          <div class="filter-group">
+            <label>Tür:</label>
+            <div class="multi-select" id="tur-select">
+              <div class="multi-select-trigger">
+                <span class="multi-select-text">Tümü Seçili</span>
+                <div class="arrow"></div>
+              </div>
+              <div class="multi-select-dropdown">
+                <div class="multi-select-options" id="tur-options">
+                </div>
+              </div>
+            </div>
+
+            <label>TUR-C:</label>
+            <div class="multi-select" id="turc-select">
+              <div class="multi-select-trigger">
+                <span class="multi-select-text">Tümü Seçili</span>
+                <div class="arrow"></div>
+              </div>
+              <div class="multi-select-dropdown">
+                <div class="multi-select-options" id="turc-options">
+                </div>
+              </div>
+            </div>
+
+            <label>ŞİRKET:</label>
+            <div class="multi-select" id="sirket-select">
+              <div class="multi-select-trigger">
+                <span class="multi-select-text">Tümü Seçili</span>
+                <div class="arrow"></div>
+              </div>
+              <div class="multi-select-dropdown">
+                <div class="multi-select-options" id="sirket-options">
+                </div>
+              </div>
+            </div>
+
+            <label>TEFAS:</label>
+            <select id="tefas-status-filter" class="custom-select">
+              <option value="ALL">Hepsi</option>
+              <option value="EVET" selected>İşleme Açık</option>
+              <option value="HAYIR">İşleme Kapalı</option>
+            </select>
+
+            <button id="apply-filter-btn" class="secondary-btn">Uygula</button>
+            <button id="reset-filter-btn" class="secondary-btn outline">Varsayılan</button>
+
+            <div class="export-dropdown" style="margin-left: auto;">
+              <button class="secondary-btn outline export-trigger-btn has-tooltip" data-tooltip="Dışa Aktar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              <div class="export-menu">
+                <button id="export-data-csv" class="export-menu-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  CSV (Noktalı Virgül)
+                </button>
+                <button id="export-data-xls" class="export-menu-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  Excel (XLS)
+                </button>
+              </div>
+            </div>
+
+            <button id="toggle-cols-btn" class="secondary-btn outline" style="margin-left: 0.5rem;">Detayları
+              Göster</button>
+          </div>
+        </div>
+
+        <div id="data-table-container" class="table-container fade-in advanced-hidden">
+          <table id="data-table">
+            <thead>
+              <tr>
+                <th data-sort="code" data-index="0">KOD</th>
+                <th data-sort="name" data-index="1">UNVAN</th>
+                <th data-sort="1g" data-index="2">1G %</th>
+                <th data-sort="1h" data-index="3">1H %</th>
+                <th data-sort="1ay" data-index="4">1AY</th>
+                <th data-sort="3ay" data-index="5">3AY</th>
+                <th data-sort="6ay" data-index="6">6AY</th>
+                <th data-sort="ybb" data-index="7">YBB</th>
+                <th data-sort="1y" data-index="8">1YIL</th>
+                <th data-sort="3y" data-index="9">3YIL</th>
+                <th data-sort="5y" data-index="10">5YIL</th>
+                <th data-sort="tur" data-index="11">TÜR</th>
+                <th data-sort="turc" data-index="12" class="advanced-hidden">TUR-C</th>
+                <th data-sort="sirket" data-index="13" class="advanced-hidden">ŞİRKET</th>
+                <th data-sort="tefas" data-index="14" class="advanced-hidden">TEFAS</th>
+                <th data-sort="fiyat" data-index="15" class="advanced-hidden">FIYAT</th>
+                <th data-sort="fiyat1" data-index="16" class="advanced-hidden">FIYAT1</th>
+                <th data-sort="fiyat7" data-index="17" class="advanced-hidden">FIYAT7</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td colspan="18" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-portfolio" class="tab-panel">
+        <div id="portfolio-content">
+          <!-- Add Fund Panel -->
+          <div class="portfolio-add-panel fade-in">
+            <div class="add-panel-header">
+              <h3>Fon Ekle</h3>
+              <p class="add-panel-hint">Portföyünüze bir fon eklemek için aşağıdan seçin.</p>
+            </div>
+            <div class="add-fund-form">
+              <div class="form-group">
+                <label>İşlem Tipi</label>
+                <div class="transaction-toggle">
+                  <input type="radio" id="type-buy" name="pf-type" value="AL" checked>
+                  <label for="type-buy" class="toggle-btn buy">ALIŞ</label>
+                  <input type="radio" id="type-sell" name="pf-type" value="SAT">
+                  <label for="type-sell" class="toggle-btn sell">SATIŞ</label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="pf-fund-search">Fon Ara (Kod / İsim)</label>
+                <div style="position: relative;">
+                  <input type="text" id="pf-fund-search" class="form-input" placeholder="Örn: AFT, GAF..."
+                    autocomplete="off">
+                  <div id="pf-fund-suggestions" class="fund-suggestions"></div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="pf-lots">Lot (Adet)</label>
+                <input type="number" id="pf-lots" class="form-input" placeholder="0.00" min="0" step="0.01">
+              </div>
+              <div class="form-group">
+                <label for="pf-buy-price">Birim Fiyat (₺)</label>
+                <input type="number" id="pf-buy-price" class="form-input" placeholder="0.0000" min="0" step="0.0001">
+              </div>
+              <div class="form-group">
+                <label for="pf-buy-date">İşlem Tarihi</label>
+                <input type="date" id="pf-buy-date" class="form-input">
+              </div>
+              <button id="pf-add-btn" class="primary-btn" style="align-self: flex-end;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                İşlemi Kaydet
+              </button>
+            </div>
+          </div>
+
+          <!-- Portfolio Table Filters -->
+          <div class="toolbar fade-in" style="margin-bottom: 1rem;">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" id="transactions-filter" placeholder="Fon Koduna Göre Filtrele..."
+                title="Fon Koduna Göre Filtrele">
+            </div>
+            <div class="export-dropdown" style="margin-left: auto;">
+              <button class="secondary-btn outline export-trigger-btn has-tooltip" data-tooltip="Dışa Aktar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              <div class="export-menu">
+                <button id="export-transactions-csv" class="export-menu-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  CSV (Noktalı Virgül)
+                </button>
+                <button id="export-transactions-xls" class="export-menu-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                  Excel (XLS)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Portfolio Table -->
+          <div class="table-container fade-in" id="portfolio-table-container">
+            <table id="portfolio-table">
+              <thead>
+                <tr>
+                  <th>NO</th>
+                  <th>KOD</th>
+                  <th>TIP</th>
+                  <th>LOT</th>
+                  <th>ÖNCEKİ LOT</th>
+                  <th>KÜM LOT</th>
+                  <th>BİRİM FİYAT</th>
+                  <th>MALİYET</th>
+                  <th>SATIŞ KARI</th>
+                  <th>TARİH</th>
+                  <th>İŞLEM</th>
+                </tr>
+              </thead>
+              <tbody id="portfolio-body">
+                <tr>
+                  <td colspan="12" class="empty-state">Portföyünüz boş. Yukarıdan fon ekleyebilirsiniz.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 90%; max-width: 500px;">
+      <div class="add-panel-header">
+        <h3>İşlemi Düzenle</h3>
+        <p class="add-panel-hint" id="edit-fund-title"></p>
+      </div>
+      <div class="edit-form" style="display: flex; flex-direction: column; gap: 1rem;">
+        <input type="hidden" id="edit-entry-id">
+        <div class="form-group">
+          <label>İşlem Tipi</label>
+          <div class="transaction-toggle">
+            <input type="radio" id="edit-type-buy" name="edit-pf-type" value="AL">
+            <label for="edit-type-buy" class="toggle-btn buy">ALIŞ</label>
+            <input type="radio" id="edit-type-sell" name="edit-pf-type" value="SAT">
+            <label for="edit-type-sell" class="toggle-btn sell">SATIŞ</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-lots">Lot (Adet)</label>
+          <input type="number" id="edit-lots" class="form-input" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label for="edit-price">Birim Fiyat (₺)</label>
+          <input type="number" id="edit-price" class="form-input" placeholder="0.0000" min="0" step="0.0001">
+        </div>
+        <div class="form-group">
+          <label for="edit-date">İşlem Tarihi</label>
+          <input type="date" id="edit-date" class="form-input">
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button id="edit-save-btn" class="primary-btn" style="flex: 1;">Güncelle</button>
+          <button id="edit-close-btn" class="secondary-btn outline" style="flex: 1;">İptal</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 90%; max-width: 400px;">
+      <div class="add-panel-header">
+        <h3>Tarih Ayarları</h3>
+        <p class="add-panel-hint">Veri çekilirken kullanılacak tarihleri manuel olarak belirleyebilirsiniz.</p>
+      </div>
+      <div class="settings-form" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="form-group">
+          <label for="setting-today">Bugünün Tarihi (Bugün)</label>
+          <input type="date" id="setting-today" class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="setting-target">Dünkü Tarih (1G / Fiyat1)</label>
+          <input type="date" id="setting-target" class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="setting-seven">Geçen Haftaki Tarih (1H / Fiyat7)</label>
+          <input type="date" id="setting-seven" class="form-input">
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button id="settings-save-btn" class="primary-btn" style="flex: 1;">Kaydet</button>
+          <button id="settings-close-btn" class="secondary-btn outline" style="flex: 1;">Kapat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./main.js"></script>
+  <script type="module" src="./transactions.js"></script>
+</body>
+
+</html>
