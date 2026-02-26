@@ -5,7 +5,7 @@ const PORTFOLIO_KEY = 'tefasPortfolio';
 
 // --- State ---
 let portfolio = [];
-let dashboardSort = { col: 'code', dir: 'asc' };
+let dashboardSort = { col: 'currentValue', dir: 'desc' };
 let weightChartInstance = null;
 let pnlChartInstance = null;
 
@@ -40,6 +40,19 @@ let selectedFund = null; // { code, name }
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const target = btn.dataset.tab;
+        const tabName = btn.textContent.trim();
+
+        // Update breadcrumb and title
+        const breadcrumbEl = document.getElementById('current-tab-name');
+        const mainTitleEl = document.getElementById('main-title');
+        if (breadcrumbEl) breadcrumbEl.textContent = tabName;
+        if (mainTitleEl) {
+            if (target === 'tab-dashboard') mainTitleEl.textContent = 'Ana Dashboard';
+            else if (target === 'tab-veriler') mainTitleEl.textContent = 'Yatırım Fonları';
+            else if (target === 'tab-veriler-bes') mainTitleEl.textContent = 'BES Fonları';
+            else if (target === 'tab-portfolio') mainTitleEl.textContent = 'Portföy İşlemleri';
+            else if (target === 'tab-flow') mainTitleEl.textContent = 'Para Akışı Analizi';
+        }
 
         // Update UI
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -52,9 +65,31 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
             renderPortfolio();
         } else if (target === 'tab-dashboard') {
             renderDashboard();
+        } else if (target === 'tab-flow') {
+            if (window.renderFlow) window.renderFlow();
         }
+
+        // Close mobile sidebar if open
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar && window.innerWidth <= 1200) sidebar.classList.remove('open');
     });
 });
+
+// --- Sidebar Toggle ---
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebar = document.querySelector('.sidebar');
+
+if (sidebarToggle && sidebar) {
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    });
+
+    // Load saved state
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+    }
+}
 
 // --- Fund Search Suggestions ---
 pfFundSearch.addEventListener('input', () => {
@@ -262,7 +297,7 @@ function renderPortfolio() {
 function renderDashboard() {
     const data = window.fullData || [];
     if (portfolio.length === 0) {
-        dashboardBody.innerHTML = '<tr><td colspan="11" class="empty-state">Henüz bir işleminiz bulunmuyor.</td></tr>';
+        dashboardBody.innerHTML = '<tr><td colspan="13" class="empty-state">Henüz bir işleminiz bulunmuyor.</td></tr>';
         updateSummary([], data);
         return;
     }
@@ -362,22 +397,24 @@ function renderDashboard() {
         const weight = totalPortfolioValue > 0 ? (row.currentValue / totalPortfolioValue) : 0;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>
+            <td class="has-tooltip" data-tooltip="${row.name}">
                 <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${row.code}" target="_blank" class="fund-link">
                     <strong>${row.code}</strong>
                 </a>
+                <div class="wrap-text unvan-text fund-name-sub">${row.name}</div>
             </td>
-            <td class="has-tooltip" data-tooltip="${row.name}">
-                <div class="wrap-text unvan-text">${row.name}</div>
+            <td class="detail-col">₺${fmtNum(row.currentPrice, 4)}</td>
+            <td>
+                <span class="lot-value-main">${row.totalLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} lot</span>
+                <div class="lot-value-sub">₺${fmtNum(row.currentValue)}</div>
             </td>
-            <td>₺${fmtNum(row.currentPrice, 4)}</td>
-            <td>${row.totalLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-            <td>₺${fmtNum(row.avgCost, 4)}</td>
-            <td>₺${fmtNum(row.currentValue)}</td>
-            <td class="${row.pnl >= 0 ? 'val-up' : 'val-down'}">₺${row.pnl >= 0 ? '+' : ''}${fmtNum(row.pnl)}</td>
+            <td class="detail-col">₺${fmtNum(row.avgCost, 4)}</td>
+            <td class="detail-col ${row.pnl >= 0 ? 'val-up' : 'val-down'}">
+                ₺${row.pnl >= 0 ? '+' : ''}${fmtNum(row.pnl)}
+                <div class="lot-value-sub ${row.realizedProfit > 0 ? 'val-up' : row.realizedProfit < 0 ? 'val-down' : 'val-neutral'}">₺${fmtNum(row.realizedProfit)}</div>
+            </td>
+            <td class="detail-col ${row.totalProfit > 0 ? 'val-up' : row.totalProfit < 0 ? 'val-down' : 'val-neutral'}"><strong>₺${fmtNum(row.totalProfit)}</strong></td>
             <td>${fmtPercent(row.pnlPct)}</td>
-            <td class="${row.realizedProfit > 0 ? 'val-up' : row.realizedProfit < 0 ? 'val-down' : 'val-neutral'}">₺${fmtNum(row.realizedProfit)}</td>
-            <td class="${row.totalProfit > 0 ? 'val-up' : row.totalProfit < 0 ? 'val-down' : 'val-neutral'}"><strong>₺${fmtNum(row.totalProfit)}</strong></td>
             <td class="advanced-hidden">${fmtPercent(row.g1)}</td>
             <td class="advanced-hidden">${fmtPercent(row.h1)}</td>
             <td class="advanced-hidden">${fmtPercent(row.ay3)}</td>
@@ -405,8 +442,10 @@ function renderCharts(fundRows) {
     if (typeof Chart === 'undefined') return;
 
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const textColor = isLight ? '#2a2e45' : '#cbd5e1';
-    const gridColor = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+    const textColor = isLight ? '#1B2559' : '#A3AED0';
+    const gridColor = isLight ? '#E9EDF7' : '#1B254B';
+    const primaryColor = isLight ? '#4318FF' : '#7551FF';
+
 
     // Chart 1: Weight Chart (Sorted by Current Value)
     const totalVal = fundRows.reduce((acc, f) => acc + (f.currentValue || 0), 0);
@@ -425,10 +464,11 @@ function renderCharts(fundRows) {
                 datasets: [{
                     label: 'Portföy Ağırlığı (%)',
                     data: weightValues,
-                    backgroundColor: 'rgba(99, 102, 241, 0.7)',
-                    borderColor: 'rgb(99, 102, 241)',
-                    borderWidth: 1,
-                    borderRadius: 4
+                    backgroundColor: primaryColor,
+                    borderColor: primaryColor,
+                    borderWidth: 0,
+                    borderRadius: 10
+
                 }]
             },
             options: {
@@ -461,10 +501,10 @@ function renderCharts(fundRows) {
         });
     }
 
-    // Chart 2: PnL Chart (Sorted by Total Profit)
-    const pnlData = [...fundRows].sort((a, b) => b.totalProfit - a.totalProfit);
+    // Chart 2: PnL Chart (Sorted by Profit Percentage)
+    const pnlData = [...fundRows].sort((a, b) => b.pnlPct - a.pnlPct);
     const pnlLabels = pnlData.map(f => f.code);
-    const pnlValues = pnlData.map(f => f.totalProfit);
+    const pnlValues = pnlData.map(f => f.pnlPct * 100);
 
     if (pnlChartInstance) pnlChartInstance.destroy();
 
@@ -475,7 +515,7 @@ function renderCharts(fundRows) {
             data: {
                 labels: pnlLabels,
                 datasets: [{
-                    label: 'Toplam Kâr (₺)',
+                    label: 'Kâr / Zarar (%)',
                     data: pnlValues,
                     backgroundColor: pnlValues.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
                     borderColor: pnlValues.map(v => v >= 0 ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)'),
@@ -488,18 +528,29 @@ function renderCharts(fundRows) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `K/Z: %${context.parsed.y.toFixed(2)}`
+                        }
+                    }
                 },
                 scales: {
                     x: {
-                        ticks: { color: textColor },
+                        ticks: { color: textColor, font: { weight: '500' } },
                         grid: { display: false }
                     },
                     y: {
-                        ticks: { color: textColor },
-                        grid: { color: gridColor }
+                        ticks: {
+                            color: textColor,
+                            font: { weight: '500' },
+                            callback: (value) => `%${value}`
+                        },
+                        grid: { color: gridColor, drawBorder: false },
+                        beginAtZero: true
                     }
                 }
+
             }
         });
     }
@@ -590,14 +641,40 @@ function updateSummary(rows, data) {
     dailyEl.textContent = `${dailyChangeTl >= 0 ? '+' : ''}₺${fmtNum(dailyChangeTl)}`;
     dailyEl.className = `summary-value ${dailyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
 
-    // Total Profit/Loss
-    const totalPnl = rows.reduce((acc, r) => acc + r.pnl, 0);
+    // Güncel Kar (Unrealized PnL of active holdings)
+    let guncelKar = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            // Find average cost for this code
+            const chron = portfolio.filter(p => p.code === code).sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+            let runningLots = 0;
+            let runningCost = 0;
+            chron.forEach(e => {
+                if (e.type === 'AL') {
+                    runningLots += e.lots;
+                    runningCost += e.lots * e.buyPrice;
+                } else {
+                    const avg = runningLots > 0 ? (runningCost / runningLots) : 0;
+                    runningLots -= e.lots;
+                    runningCost -= e.lots * avg;
+                    if (runningLots < 0) { runningLots = 0; runningCost = 0; }
+                }
+            });
+            const liveRow = data.find(r => r[0] === code);
+            const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+            const currentValue = runningLots * currentPrice;
+            guncelKar += (currentValue - runningCost);
+        }
+    });
+
     const pnlEl = document.getElementById('pf-total-pnl');
-    pnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}₺${fmtNum(totalPnl)}`;
-    pnlEl.className = `summary-value ${totalPnl >= 0 ? 'val-up' : 'val-down'}`;
+    pnlEl.textContent = `${guncelKar >= 0 ? '+' : ''}₺${fmtNum(guncelKar)}`;
+    pnlEl.className = `summary-value ${guncelKar >= 0 ? 'val-up' : 'val-down'}`;
 }
 
 function updateBadge() {
+    if (!pfBadge) return;
     pfBadge.textContent = portfolio.length;
     pfBadge.style.display = portfolio.length > 0 ? 'inline-flex' : 'none';
 }
@@ -690,10 +767,12 @@ const dashboardTableContainer = document.getElementById('dashboard-table-contain
 
 if (dashboardToggleBtn) {
     dashboardToggleBtn.addEventListener('click', () => {
-        dashboardTableContainer.classList.toggle('advanced-hidden');
-        dashboardToggleBtn.textContent = dashboardTableContainer.classList.contains('advanced-hidden')
-            ? 'Detayları Göster'
-            : 'Detayları Gizle';
+        dashboardTableContainer.classList.toggle('detail-hidden');
+        dashboardToggleBtn.setAttribute('data-tooltip',
+            dashboardTableContainer.classList.contains('detail-hidden')
+                ? 'Detayları Göster'
+                : 'Detayları Gizle'
+        );
     });
 }
 
@@ -764,14 +843,14 @@ document.addEventListener('tefas-data-updated', () => {
 document.getElementById('export-dashboard-csv')?.addEventListener('click', () => {
     const data = window.fullData || [];
     const aggregated = getAggregatedData(data);
-    const headers = ['KOD', 'UNVAN', 'FİYAT', 'LOT', 'ORT. MALİYET', 'GÜNCEL DEĞER', 'K/Z (₺)', 'K/Z %', 'SATIŞ KARI', 'TOPLAM KAR', '1G %', '1H %', '3AY %', '1YIL %', 'AĞIRLIK (%)'];
+    const headers = ['KOD', 'UNVAN', 'FİYAT', 'LOT', 'ORT. MALİYET', 'GÜNCEL DEĞER', 'GÜNCEL KAR', 'SATIŞ KARI', 'TOPLAM KAR', 'K/Z %', '1G %', '1H %', '3AY %', '1YIL %', 'AĞIRLIK (%)'];
 
     let totalVal = aggregated.reduce((acc, f) => acc + f.currentValue, 0);
 
     const exportData = aggregated.map(f => [
         f.code, f.name, f.currentPrice.toFixed(4), f.totalLots, f.avgCost.toFixed(4),
-        f.currentValue.toFixed(2), f.pnl.toFixed(2), (f.pnlPct * 100).toFixed(2) + '%',
-        f.realizedProfit.toFixed(2), f.totalProfit.toFixed(2),
+        f.currentValue.toFixed(2), f.pnl.toFixed(2), f.realizedProfit.toFixed(2),
+        f.totalProfit.toFixed(2), (f.pnlPct * 100).toFixed(2) + '%',
         f.g1 !== null ? (f.g1 * 100).toFixed(2) + '%' : '-',
         f.h1 !== null ? (f.h1 * 100).toFixed(2) + '%' : '-',
         f.ay3 !== null ? (f.ay3 * 100).toFixed(2) + '%' : '-',
@@ -784,14 +863,14 @@ document.getElementById('export-dashboard-csv')?.addEventListener('click', () =>
 document.getElementById('export-dashboard-xls')?.addEventListener('click', () => {
     const data = window.fullData || [];
     const aggregated = getAggregatedData(data);
-    const headers = ['KOD', 'UNVAN', 'FİYAT', 'LOT', 'ORT. MALİYET', 'GÜNCEL DEĞER', 'K/Z (₺)', 'K/Z %', 'SATIŞ KARI', 'TOPLAM KAR', '1G %', '1H %', '3AY %', '1YIL %', 'AĞIRLIK (%)'];
+    const headers = ['KOD', 'UNVAN', 'FİYAT', 'LOT', 'ORT. MALİYET', 'GÜNCEL DEĞER', 'GÜNCEL KAR', 'SATIŞ KARI', 'TOPLAM KAR', 'K/Z %', '1G %', '1H %', '3AY %', '1YIL %', 'AĞIRLIK (%)'];
 
     let totalVal = aggregated.reduce((acc, f) => acc + f.currentValue, 0);
 
     const exportData = aggregated.map(f => [
         f.code, f.name, f.currentPrice.toFixed(4), f.totalLots, f.avgCost.toFixed(4),
-        f.currentValue.toFixed(2), f.pnl.toFixed(2), (f.pnlPct * 100).toFixed(2) + '%',
-        f.realizedProfit.toFixed(2), f.totalProfit.toFixed(2),
+        f.currentValue.toFixed(2), f.pnl.toFixed(2), f.realizedProfit.toFixed(2),
+        f.totalProfit.toFixed(2), (f.pnlPct * 100).toFixed(2) + '%',
         f.g1 !== null ? (f.g1 * 100).toFixed(2) + '%' : '-',
         f.h1 !== null ? (f.h1 * 100).toFixed(2) + '%' : '-',
         f.ay3 !== null ? (f.ay3 * 100).toFixed(2) + '%' : '-',
