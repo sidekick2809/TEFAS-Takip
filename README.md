@@ -96,8 +96,16 @@ Bu komut hem imajı oluşturur, hem de veri klasörünü otomatik olarak bağlay
 ## 💾 Veri Saklama
 
 Uygulama, verilerinizi iki katmanlı olarak saklar:
-1.  **Tarayıcı (Local Storage):** Çevrimdışı kullanım ve hızlı erişim için tarayıcınızda tutulur.
-2.  **Sunucu (SQLite Veritabanı):** Docker veya Node.js ile çalıştırıldığında `data/portfolio.db` SQLite veritabanı dosyasında saklanır. Bu sayede farklı tarayıcılardan eriştiğinizde verileriniz senkronize kalır ve JSON dosyasına göre daha güvenli bir yapı sunar.
+
+### Sunucu (SQLite Veritabanı) — Ana Depolama
+Docker veya Node.js ile çalıştırıldığında tüm veriler `data/portfolio.db` SQLite veritabanı dosyasında saklanır:
+- **Portföy İşlemleri:** Alım/satım kayıtları
+- **TEFAS Fon Verileri:** Fiyatlar, getiriler, fon bilgileri (cache)
+
+Bu sayede farklı tarayıcılardan veya cihazlardan eriştiğinizde verileriniz senkronize kalır.
+
+### Tarayıcı (Local Storage) — Yedek/Cache
+Çevrimdışı kullanım ve hızlı erişim için tarayıcınızda da yedeklenir.
 
 ### Veritabanı Dosyası Konumu
 - **Yerel çalışma:** `data/portfolio.db`
