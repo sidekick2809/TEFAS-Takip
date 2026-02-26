@@ -97,9 +97,14 @@ Bu komut hem imajı oluşturur, hem de veri klasörünü otomatik olarak bağlay
 
 Uygulama, verilerinizi iki katmanlı olarak saklar:
 1.  **Tarayıcı (Local Storage):** Çevrimdışı kullanım ve hızlı erişim için tarayıcınızda tutulur.
-2.  **Sunucu (JSON Dosyası):** Docker veya Node.js ile çalıştırıldığında `data/portfolio.json` dosyasında saklanır. Bu sayede farklı tarayıcılardan eriştiğinizde verileriniz senkronize kalır.
+2.  **Sunucu (SQLite Veritabanı):** Docker veya Node.js ile çalıştırıldığında `data/portfolio.db` SQLite veritabanı dosyasında saklanır. Bu sayede farklı tarayıcılardan eriştiğinizde verileriniz senkronize kalır ve JSON dosyasına göre daha güvenli bir yapı sunar.
 
-Docker ile kullanımda veri kaybını önlemek için `data` klasörünü volume olarak bağlamanız (yukarıdaki Docker talimatlarında belirtildiği gibi) önemlidir.
+### Veritabanı Dosyası Konumu
+- **Yerel çalışma:** `data/portfolio.db`
+- **Docker:** Uygulama `/app/data` klasöründe çalışır. Veri kalıcılığı için `data` klasörünü volume olarak bağlamanız (yukarıdaki Docker talimatlarında belirtildiği gibi) önemlidir.
+
+### Otomatik Geçiş
+Eğer daha önce `portfolio.json` dosyası kullanıldıysa, uygulama ilk çalıştırıldığında otomatik olarak SQLite veritabanına aktarır ve JSON dosyasını `portfolio.json.bak` olarak yedekler.
 
 
 ## 📄 Lisans
