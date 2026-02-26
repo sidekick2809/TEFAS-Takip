@@ -99,7 +99,35 @@ class TefasDataView {
         this.sirketSelect?.classList.remove('open');
     }
 
-    loadFromStorage() {
+    async loadFromStorage() {
+        // Try to load from server first
+        try {
+            const response = await fetch('/api/tefas-data');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.data && result.data.length > 0) {
+                    this.fullData = result.data;
+                    if (result.updatedAt && this.lastUpdateText) {
+                        this.lastUpdateText.textContent = "Son Güncelleme: " + result.updatedAt.replace('T', ' ').slice(0, 16);
+                    }
+                    if (this.fontip === 'YAT') {
+                        window.fullData = this.fullData;
+                    }
+                    this.initFilters();
+                    this.applyFilters();
+                    if (this.fontip === 'YAT') {
+                        document.dispatchEvent(new CustomEvent('tefas-data-updated'));
+                    }
+                    // Also save to localStorage for offline access
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.fullData));
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log(`Sunucudan veri alınamadı (${this.prefix}), yerel storage kullanılıyor:`, error.message);
+        }
+
+        // Fallback to localStorage
         const savedData = localStorage.getItem(this.storageKey);
         const savedUpdate = localStorage.getItem(this.lastUpdateKey);
 
@@ -111,7 +139,6 @@ class TefasDataView {
             try {
                 this.fullData = JSON.parse(savedData);
                 if (this.fullData && this.fullData.length > 0) {
-                    // Update global fullData for YAT tab only to maintain compatibility with transactions.js
                     if (this.fontip === 'YAT') {
                         window.fullData = this.fullData;
                     }
@@ -180,6 +207,17 @@ class TefasDataView {
 
             this.fullData.sort((a, b) => a[14].localeCompare(b[14]));
             localStorage.setItem(this.storageKey, JSON.stringify(this.fullData));
+
+            // Also save to server database
+            try {
+                await fetch('/api/tefas-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: this.fullData })
+                });
+            } catch (err) {
+                console.log('Sunucuya veri kaydedilemedi:', err.message);
+            }
 
             if (this.fontip === 'YAT') {
                 window.fullData = this.fullData;

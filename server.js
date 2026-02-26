@@ -40,6 +40,15 @@ db.exec(`
     )
 `);
 
+// TEFAS fund data table (stores cached fund information)
+db.exec(`
+    CREATE TABLE IF NOT EXISTS tefas_data (
+        id        INTEGER PRIMARY KEY,
+        data      TEXT,
+        updatedAt TEXT
+    )
+`);
+
 // Auto-migrate from portfolio.json if DB is empty and JSON file exists
 const rowCount = db.prepare('SELECT COUNT(*) as cnt FROM portfolio').get();
 if (rowCount.cnt === 0 && fs.existsSync(LEGACY_JSON)) {
@@ -114,6 +123,36 @@ app.post('/api/local-portfolio', (req, res) => {
         });
         replace(rows);
         res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Veri kaydedilemedi' });
+    }
+});
+
+// API: TEFAS Data - Get cached data
+app.get('/api/tefas-data', (req, res) => {
+    try {
+        const row = db.prepare('SELECT data, updatedAt FROM tefas_data ORDER BY id DESC LIMIT 1').get();
+        if (row) {
+            res.json({ data: JSON.parse(row.data), updatedAt: row.updatedAt });
+        } else {
+            res.json({ data: null, updatedAt: null });
+        }
+    } catch (err) {
+        res.status(500).json({ error: 'Veri okunamadı' });
+    }
+});
+
+// API: TEFAS Data - Save (full replace)
+app.post('/api/tefas-data', (req, res) => {
+    try {
+        const { data } = req.body;
+        if (!Array.isArray(data)) {
+            return res.status(400).json({ error: 'Geçersiz veri formatı' });
+        }
+        const now = new Date().toISOString();
+        db.prepare('DELETE FROM tefas_data').run();
+        db.prepare('INSERT INTO tefas_data (data, updatedAt) VALUES (?, ?)').run(JSON.stringify(data), now);
+        res.json({ success: true, updatedAt: now });
     } catch (err) {
         res.status(500).json({ error: 'Veri kaydedilemedi' });
     }
