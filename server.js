@@ -36,16 +36,62 @@ db.exec(`
         buyPrice  REAL,
         buyDate   TEXT,
         type      TEXT,
-        note      TEXT
+        note      TEXT,
+        fundType  TEXT DEFAULT 'YAT'
     )
 `);
+
+// Create BES portfolio table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS bes_portfolio (
+        id        INTEGER PRIMARY KEY,
+        code      TEXT,
+        name      TEXT,
+        lots      REAL,
+        buyPrice  REAL,
+        buyDate   TEXT,
+        type      TEXT,
+        note      TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Migration: Add fundType column if it doesn't exist (for existing databases)
+try {
+    db.exec("ALTER TABLE portfolio ADD COLUMN fundType TEXT DEFAULT 'YAT'");
+} catch (e) {
+    // Column might already exist or table is new, ignore error
+}
 
 // TEFAS fund data table (stores cached fund information)
 db.exec(`
     CREATE TABLE IF NOT EXISTS tefas_data (
         id        INTEGER PRIMARY KEY,
+        type      TEXT NOT NULL, -- 'YAT' or 'EMK'
         data      TEXT,
         updatedAt TEXT
+    )
+`);
+
+// Migration: Add type column if it doesn't exist (for existing databases)
+try {
+    db.exec("ALTER TABLE tefas_data ADD COLUMN type TEXT DEFAULT 'YAT'");
+} catch (e) {
+    // Column might already exist or table is new, ignore error
+}
+
+// KAP (Kamuyu Aydınlatma Platformu) data table
+db.exec(`
+    CREATE TABLE IF NOT EXISTS kap_data (
+        id        INTEGER PRIMARY KEY,
+        stockCode TEXT,
+        publishDate TEXT,
+        title     TEXT,
+        companyTitle TEXT,
+        summary   TEXT,
+        disclosureCategory TEXT,
+        url       TEXT,
+        fetchedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )
 `);
 
@@ -85,27 +131,73 @@ if (rowCount.cnt === 0 && fs.existsSync(LEGACY_JSON)) {
 app.use(cors());
 app.use(express.json());
 
-// API: Portfolio - Get
+// API: Portfolio - Get (by fundType: YAT or EMK)
 app.get('/api/local-portfolio', (req, res) => {
     try {
-        const rows = db.prepare('SELECT * FROM portfolio ORDER BY id').all();
+        const fundType = req.query.fundType || 'YAT';
+        const rows = db.prepare('SELECT * FROM portfolio WHERE fundType = ? ORDER BY id').all(fundType);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: 'Veri okunamadı' });
     }
 });
 
-// API: Portfolio - Save (full replace)
+// API: Portfolio - Save (full replace, by fundType)
 app.post('/api/local-portfolio', (req, res) => {
     try {
-        const rows = req.body;
+        const { rows, fundType } = req.body;
+        if (!Array.isArray(rows)) {
+            return res.status(400).json({ error: 'Geçersiz veri formatı' });
+        }
+        const pFundType = fundType || 'YAT';
+        const replace = db.transaction((data) => {
+            db.prepare('DELETE FROM portfolio WHERE fundType = ?').run(pFundType);
+            const insert = db.prepare(`
+                INSERT INTO portfolio (id, code, name, lots, buyPrice, buyDate, type, note, fundType)
+                VALUES (@id, @code, @name, @lots, @buyPrice, @buyDate, @type, @note, @fundType)
+            `);
+            for (const row of data) {
+                insert.run({
+                    id: row.id ?? null,
+                    code: row.code ?? null,
+                    name: row.name ?? null,
+                    lots: row.lots ?? null,
+                    buyPrice: row.buyPrice ?? null,
+                    buyDate: row.buyDate ?? null,
+                    type: row.type ?? null,
+                    note: row.note ?? null,
+                    fundType: pFundType
+                });
+            }
+        });
+        replace(rows);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Veri kaydedilemedi' });
+    }
+});
+
+// API: BES Portfolio - Get
+app.get('/api/bes-portfolio', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM bes_portfolio ORDER BY id').all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'BES verisi okunamadı' });
+    }
+});
+
+// API: BES Portfolio - Save (full replace)
+app.post('/api/bes-portfolio', (req, res) => {
+    try {
+        const { rows } = req.body;
         if (!Array.isArray(rows)) {
             return res.status(400).json({ error: 'Geçersiz veri formatı' });
         }
         const replace = db.transaction((data) => {
-            db.prepare('DELETE FROM portfolio').run();
+            db.prepare('DELETE FROM bes_portfolio').run();
             const insert = db.prepare(`
-                INSERT INTO portfolio (id, code, name, lots, buyPrice, buyDate, type, note)
+                INSERT INTO bes_portfolio (id, code, name, lots, buyPrice, buyDate, type, note)
                 VALUES (@id, @code, @name, @lots, @buyPrice, @buyDate, @type, @note)
             `);
             for (const row of data) {
@@ -124,14 +216,15 @@ app.post('/api/local-portfolio', (req, res) => {
         replace(rows);
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: 'Veri kaydedilemedi' });
+        res.status(500).json({ error: 'BES verisi kaydedilemedi' });
     }
 });
 
-// API: TEFAS Data - Get cached data
+// API: TEFAS Data - Get cached data (by type: YAT or EMK)
 app.get('/api/tefas-data', (req, res) => {
     try {
-        const row = db.prepare('SELECT data, updatedAt FROM tefas_data ORDER BY id DESC LIMIT 1').get();
+        const type = req.query.type || 'YAT';
+        const row = db.prepare('SELECT data, updatedAt FROM tefas_data WHERE type = ? ORDER BY id DESC LIMIT 1').get(type);
         if (row) {
             res.json({ data: JSON.parse(row.data), updatedAt: row.updatedAt });
         } else {
@@ -142,19 +235,175 @@ app.get('/api/tefas-data', (req, res) => {
     }
 });
 
-// API: TEFAS Data - Save (full replace)
+// API: TEFAS Data - Save (full replace, by type)
 app.post('/api/tefas-data', (req, res) => {
+    try {
+        const { data, type } = req.body;
+        if (!Array.isArray(data)) {
+            return res.status(400).json({ error: 'Geçersiz veri formatı' });
+        }
+        const fundType = type || 'YAT';
+        const now = new Date().toISOString();
+        db.prepare('DELETE FROM tefas_data WHERE type = ?').run(fundType);
+        db.prepare('INSERT INTO tefas_data (type, data, updatedAt) VALUES (?, ?, ?)').run(fundType, JSON.stringify(data), now);
+        res.json({ success: true, updatedAt: now });
+    } catch (err) {
+        res.status(500).json({ error: 'Veri kaydedilemedi' });
+    }
+});
+
+// API: TEFAS Data - Delete (clear data by type)
+app.delete('/api/tefas-data', (req, res) => {
+    try {
+        const type = req.query.type || 'YAT';
+        db.prepare('DELETE FROM tefas_data WHERE type = ?').run(type);
+        res.json({ success: true, message: `${type} verileri temizlendi` });
+    } catch (err) {
+        res.status(500).json({ error: 'Veri temizlenemedi' });
+    }
+});
+
+// API: KAP Data - Get all
+app.get('/api/kap-data', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM kap_data ORDER BY publishDate DESC, id DESC').all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'KAP verisi okunamadı' });
+    }
+});
+
+// API: KAP Data - Save (full replace)
+app.post('/api/kap-data', (req, res) => {
     try {
         const { data } = req.body;
         if (!Array.isArray(data)) {
             return res.status(400).json({ error: 'Geçersiz veri formatı' });
         }
         const now = new Date().toISOString();
-        db.prepare('DELETE FROM tefas_data').run();
-        db.prepare('INSERT INTO tefas_data (data, updatedAt) VALUES (?, ?)').run(JSON.stringify(data), now);
-        res.json({ success: true, updatedAt: now });
+        const replace = db.transaction((rows) => {
+            db.prepare('DELETE FROM kap_data').run();
+            const insert = db.prepare(`
+                INSERT INTO kap_data (stockCode, publishDate, title, companyTitle, summary, disclosureCategory, url, fetchedAt)
+                VALUES (@stockCode, @publishDate, @title, @companyTitle, @summary, @disclosureCategory, @url, @fetchedAt)
+            `);
+            for (const row of rows) {
+                insert.run({
+                    stockCode: row.stockCode || null,
+                    publishDate: row.publishDate || null,
+                    title: row.title || null,
+                    companyTitle: row.companyTitle || null,
+                    summary: row.summary || null,
+                    disclosureCategory: row.disclosureCategory || null,
+                    url: row.url || null,
+                    fetchedAt: now
+                });
+            }
+        });
+        replace(data);
+        res.json({ success: true, updatedAt: now, count: data.length });
     } catch (err) {
-        res.status(500).json({ error: 'Veri kaydedilemedi' });
+        res.status(500).json({ error: 'KAP verisi kaydedilemedi' });
+    }
+});
+
+// API: KAP Data - Delete (clear all)
+app.delete('/api/kap-data', (req, res) => {
+    try {
+        db.prepare('DELETE FROM kap_data').run();
+        res.json({ success: true, message: 'KAP verileri temizlendi' });
+    } catch (err) {
+        res.status(500).json({ error: 'KAP verisi temizlenemedi' });
+    }
+});
+
+// API: KAP Data - Fetch from KAP API (proxy)
+app.post('/api/kap-data/fetch', async (req, res) => {
+    try {
+        const apiUrl = 'https://www.kap.org.tr/tr/api/disclosure/list/main';
+
+        // Get current date in TR format
+        const now = new Date();
+        const formatDateTR = (d) => {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}.${month}.${year}`;
+        };
+        const currentDate = formatDateTR(now);
+
+        const payload = {
+            disclosureTypes: null,
+            fromDate: currentDate,
+            fundTypes: ["YF"], // Yatırım Fonları
+            memberTypes: null,
+            mkkMemberOid: null,
+            toDate: currentDate
+        };
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(`KAP API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data || data.length === 0) {
+            return res.json({ success: true, data: [], message: 'Belirtilen tarihler için KAP\'ta (YF) bildirimi bulunamadı.' });
+        }
+
+        // Process data
+        const processedData = [];
+        data.forEach(item => {
+            const basic = item.disclosureBasic;
+            if (basic) {
+                processedData.push({
+                    stockCode: basic.stockCode || '',
+                    publishDate: basic.publishDate || '',
+                    title: basic.title || '',
+                    companyTitle: basic.companyTitle || '',
+                    summary: basic.summary || '',
+                    disclosureCategory: basic.disclosureCategory || '',
+                    url: basic.disclosureIndex ? `https://www.kap.org.tr/tr/Bildirim/${basic.disclosureIndex}` : ''
+                });
+            }
+        });
+
+        // Save to database
+        const nowISO = new Date().toISOString();
+        const saveTransaction = db.transaction((rows) => {
+            db.prepare('DELETE FROM kap_data').run();
+            const insert = db.prepare(`
+                INSERT INTO kap_data (stockCode, publishDate, title, companyTitle, summary, disclosureCategory, url, fetchedAt)
+                VALUES (@stockCode, @publishDate, @title, @companyTitle, @summary, @disclosureCategory, @url, @fetchedAt)
+            `);
+            for (const row of rows) {
+                insert.run({
+                    stockCode: row.stockCode || null,
+                    publishDate: row.publishDate || null,
+                    title: row.title || null,
+                    companyTitle: row.companyTitle || null,
+                    summary: row.summary || null,
+                    disclosureCategory: row.disclosureCategory || null,
+                    url: row.url || null,
+                    fetchedAt: nowISO
+                });
+            }
+        });
+        saveTransaction(processedData);
+
+        res.json({ success: true, data: processedData, count: processedData.length, updatedAt: nowISO });
+
+    } catch (err) {
+        console.error('KAP fetch error:', err);
+        res.status(500).json({ error: 'KAP verisi çekilemedi: ' + err.message });
     }
 });
 

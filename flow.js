@@ -146,7 +146,7 @@ async function fetchFlowData() {
             }
         }
 
-        localStorage.setItem('tefasFlowData', JSON.stringify(results));
+        localStorage.setItem('tefasFlowData-YAT', JSON.stringify(results));
         renderFlowTable(results);
     } catch (e) {
         console.error(e);
@@ -204,7 +204,7 @@ function renderFlowTable(results) {
 
 // Export for transactions.js tab switching
 window.renderFlow = function () {
-    const saved = localStorage.getItem('tefasFlowData');
+    const saved = localStorage.getItem('tefasFlowData-YAT');
     if (saved) {
         renderFlowTable(JSON.parse(saved));
     }
@@ -247,6 +247,182 @@ if (flowSettingsSaveBtn) {
     });
 }
 
+// ==================== KAP BİLDİRİMLERİ ====================
+const fetchKapBtn = document.getElementById('fetch-kap-btn');
+const clearKapBtn = document.getElementById('clear-kap-btn');
+const kapBody = document.getElementById('kap-body');
+
+async function fetchKapData() {
+    if (!fetchKapBtn) return;
+
+    const spinner = fetchKapBtn.querySelector('.loader-spinner');
+    const btnIcon = fetchKapBtn.querySelector('.btn-icon');
+
+    // Show loading
+    fetchKapBtn.disabled = true;
+    if (spinner) spinner.style.display = 'block';
+    if (btnIcon) btnIcon.style.display = 'none';
+
+    try {
+        // Use server proxy to fetch KAP data (avoids CORS issues)
+        const response = await fetch('/api/kap-data/fetch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Veri çekilemedi');
+        }
+
+        if (!result.data || result.data.length === 0) {
+            kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">' + (result.message || 'Belirtilen tarihler için KAP\'ta (YF) bildirimi bulunamadı.') + '</td></tr>';
+            showStatusMessage(result.message || 'KAP verisi bulunamadı', 'info');
+            return;
+        }
+
+        // Render the data (already saved to database by server)
+        renderKapTable(result.data);
+        showStatusMessage(`${result.count} adet KAP bildirimi çekildi.`, 'success');
+
+    } catch (error) {
+        console.error('KAP veri çekme hatası:', error);
+        showStatusMessage('KAP verileri çekilemedi: ' + error.message, 'error');
+    } finally {
+        fetchKapBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnIcon) btnIcon.style.display = 'block';
+    }
+}
+
+function renderKapTable(data) {
+    if (!kapBody) return;
+
+    if (!data || data.length === 0) {
+        kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">Veri bulunamadı.</td></tr>';
+        return;
+    }
+
+    // Get portfolio codes for matching
+    const portfolio = JSON.parse(localStorage.getItem('tefasPortfolio')) || [];
+    const portfolioCodes = new Set();
+    portfolio.forEach(p => {
+        if (p.code) portfolioCodes.add(p.code.toUpperCase());
+    });
+
+    kapBody.innerHTML = '';
+
+    data.forEach(item => {
+        const isInPortfolio = portfolioCodes.has((item.stockCode || '').toUpperCase());
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <strong>${escapeHtml(item.stockCode)}</strong>
+                ${isInPortfolio ? '<span class="kap-badge" title="Portföyünüzde bu fon var!"><svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>' : ''}
+            </td>
+            <td>${escapeHtml(item.publishDate)}</td>
+            <td title="${escapeHtml(item.title)}">${truncateText(item.title, 50)}</td>
+            <td>${escapeHtml(item.companyTitle)}</td>
+            <td>${escapeHtml(item.disclosureCategory)}</td>
+            <td>
+                ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" class="fund-link">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                </a>` : '-'}
+            </td>
+        `;
+        kapBody.appendChild(tr);
+    });
+}
+
+async function clearKapData() {
+    if (!clearKapBtn) return;
+
+    const spinner = clearKapBtn.querySelector('.loader-spinner');
+    const btnIcon = clearKapBtn.querySelector('.btn-icon');
+
+    // Show loading
+    clearKapBtn.disabled = true;
+    if (spinner) spinner.style.display = 'block';
+    if (btnIcon) btnIcon.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/kap-data', {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">Veri yüklemek için "Verileri Çek" butonuna tıklayın.</td></tr>';
+            showStatusMessage('KAP verileri temizlendi.', 'success');
+        } else {
+            throw new Error('Veriler temizlenemedi');
+        }
+    } catch (error) {
+        console.error('KAP veri temizleme hatası:', error);
+        showStatusMessage('KAP verileri temizlenemedi: ' + error.message, 'error');
+    } finally {
+        clearKapBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btnIcon) btnIcon.style.display = 'block';
+    }
+}
+
+async function loadKapData() {
+    try {
+        const response = await fetch('/api/kap-data');
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.length > 0) {
+                renderKapTable(data);
+            }
+        }
+    } catch (error) {
+        console.error('KAP veri yükleme hatası:', error);
+    }
+}
+
+// Helper functions
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function showStatusMessage(message, type) {
+    const statusEl = document.getElementById('status-message');
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = `status-message ${type}`;
+    statusEl.style.display = 'block';
+    setTimeout(() => {
+        statusEl.style.display = 'none';
+    }, 5000);
+}
+
+// Event listeners
+if (fetchKapBtn) {
+    fetchKapBtn.addEventListener('click', fetchKapData);
+}
+
+if (clearKapBtn) {
+    clearKapBtn.addEventListener('click', clearKapData);
+}
+
+// Load data on page load - combined with existing flow handler
 window.addEventListener('DOMContentLoaded', () => {
     window.renderFlow();
+    loadKapData();
 });

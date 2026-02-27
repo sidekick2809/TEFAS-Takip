@@ -12,3 +12,6 @@ yarn-error.log*
 .env.production.local
 screenshots/
 snapshots/
+data/
+*.db
+*.db-journal
