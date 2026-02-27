@@ -974,6 +974,13 @@
             </table>
           </div>
         </div>
+
+        <!-- Floating Scroll Button -->
+        <button id="scroll-toggle-btn" class="scroll-toggle-btn" title="Aşağı/ Yukarı">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
       </div>
       <div id="tab-bes-portfolio" class="tab-panel">
         <div id="bes-portfolio-content">
@@ -1283,6 +1290,13 @@
             </table>
           </div>
         </div>
+
+        <!-- Floating Scroll Button -->
+        <button id="scroll-toggle-btn-bes" class="scroll-toggle-btn" title="Aşağı/ Yukarı">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
       </div>
       <div id="tab-flow" class="tab-panel">
         <div class="toolbar fade-in">
@@ -1542,6 +1556,53 @@
   <script type="module" src="./main.js"></script>
   <script type="module" src="./transactions.js"></script>
   <script type="module" src="./flow.js"></script>
+  <script>
+    // ===== SCROLL TOGGLE BUTTON =====
+    const scrollToggleBtn = document.getElementById('scroll-toggle-btn');
+    const scrollToggleBtnBes = document.getElementById('scroll-toggle-btn-bes');
+    let isAtBottom = false;
+
+    function handleScrollToggle(btn) {
+      if (!isAtBottom) {
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: 'smooth'
+        });
+        isAtBottom = true;
+        btn.classList.add('scrolled');
+      } else {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        isAtBottom = false;
+        btn.classList.remove('scrolled');
+      }
+    }
+
+    if (scrollToggleBtn) {
+      scrollToggleBtn.addEventListener('click', () => handleScrollToggle(scrollToggleBtn));
+    }
+
+    if (scrollToggleBtnBes) {
+      scrollToggleBtnBes.addEventListener('click', () => handleScrollToggle(scrollToggleBtnBes));
+    }
+
+    window.addEventListener('scroll', () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      isAtBottom = scrollTop >= scrollHeight - 100;
+
+      if (scrollToggleBtn) {
+        if (isAtBottom) scrollToggleBtn.classList.add('scrolled');
+        else scrollToggleBtn.classList.remove('scrolled');
+      }
+      if (scrollToggleBtnBes) {
+        if (isAtBottom) scrollToggleBtnBes.classList.add('scrolled');
+        else scrollToggleBtnBes.classList.remove('scrolled');
+      }
+    });
+  </script>
 </body>
 
 </html>

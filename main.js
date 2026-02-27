@@ -102,7 +102,7 @@ class TefasDataView {
     async loadFromStorage() {
         // Try to load from server first
         try {
-            const response = await fetch('/api/tefas-data');
+            const response = await fetch('/api/tefas-data?type=' + this.fontip);
             if (response.ok) {
                 const result = await response.json();
                 if (result.data && result.data.length > 0) {
@@ -110,8 +110,11 @@ class TefasDataView {
                     if (result.updatedAt && this.lastUpdateText) {
                         this.lastUpdateText.textContent = "Son Güncelleme: " + result.updatedAt.replace('T', ' ').slice(0, 16);
                     }
+                    // Store for portfolio/flow access
                     if (this.fontip === 'YAT') {
                         window.fullData = this.fullData;
+                    } else if (this.fontip === 'EMK') {
+                        window.besData = this.fullData;
                     }
                     this.initFilters();
                     this.applyFilters();
@@ -139,8 +142,11 @@ class TefasDataView {
             try {
                 this.fullData = JSON.parse(savedData);
                 if (this.fullData && this.fullData.length > 0) {
+                    // Store for portfolio/flow access
                     if (this.fontip === 'YAT') {
                         window.fullData = this.fullData;
+                    } else if (this.fontip === 'EMK') {
+                        window.besData = this.fullData;
                     }
                     this.initFilters();
                     this.applyFilters();
@@ -213,7 +219,7 @@ class TefasDataView {
                 await fetch('/api/tefas-data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: this.fullData })
+                    body: JSON.stringify({ data: this.fullData, type: this.fontip })
                 });
             } catch (err) {
                 console.log('Sunucuya veri kaydedilemedi:', err.message);
@@ -646,6 +652,31 @@ window.addEventListener('DOMContentLoaded', () => {
         tableId: 'data-table-bes', applyFilterBtnId: 'apply-filter-btn-bes', resetFilterBtnId: 'reset-filter-btn-bes',
         tefasStatusFilterId: 'tefas-status-filter-bes', turSelectId: 'tur-select-bes',
         turcSelectId: 'turc-select-bes', sirketSelectId: 'sirket-select-bes'
+    });
+
+    // Clear database buttons
+    document.getElementById('clear-btn')?.addEventListener('click', async () => {
+        if (!confirm('YAT fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
+        try {
+            await fetch('/api/tefas-data?type=YAT', { method: 'DELETE' });
+            localStorage.removeItem('tefasData');
+            localStorage.removeItem('tefasLastUpdate');
+            showStatus('YAT verileri temizlendi. Lütfen verileri güncelleyin.');
+        } catch (err) {
+            showStatus('Veri temizlenirken hata: ' + err.message, true);
+        }
+    });
+
+    document.getElementById('clear-btn-bes')?.addEventListener('click', async () => {
+        if (!confirm('BES fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
+        try {
+            await fetch('/api/tefas-data?type=EMK', { method: 'DELETE' });
+            localStorage.removeItem('tefasData-bes');
+            localStorage.removeItem('tefasLastUpdate-bes');
+            showStatus('BES verileri temizlendi. Lütfen verileri güncelleyin.');
+        } catch (err) {
+            showStatus('Veri temizlenirken hata: ' + err.message, true);
+        }
     });
 });
 

@@ -1,3 +1,4 @@
+/* Custom CSS Variables */
 :root {
   --bg-color: #0b1437;
   --card-bg: #111c44;
@@ -87,6 +88,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.sidebar-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.5rem 1rem;
 }
 
 .sidebar-btn {
@@ -356,6 +363,98 @@ td {
   border-bottom: 1px solid var(--border-color);
 }
 
+/* Compact dashboard table */
+#dashboard-table td,
+#dashboard-table th {
+  padding: 0.5rem 1rem;
+}
+
+/* Compact FON and BES tables */
+#data-table td,
+#data-table th,
+#data-table-bes td,
+#data-table-bes th {
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+}
+
+/* Dashboard table */
+#dashboard-table td,
+#dashboard-table th {
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+}
+
+/* Compact Portfolio tables */
+#portfolio-table td,
+#portfolio-table th,
+#bes-portfolio-table td,
+#bes-portfolio-table th {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* Compact Flow and KAP tables */
+#flow-table td,
+#flow-table th,
+#kap-table td,
+#kap-table th {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* UNVAN column single line */
+#portfolio-table td:nth-child(1),
+#portfolio-table th:nth-child(1),
+#bes-portfolio-table td:nth-child(1),
+#bes-portfolio-table th:nth-child(1) {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* All columns single line */
+#portfolio-table td,
+#portfolio-table th,
+#bes-portfolio-table td,
+#bes-portfolio-table th {
+  white-space: nowrap;
+}
+
+/* Floating Scroll Toggle Button */
+.scroll-toggle-btn {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background 0.2s ease;
+  z-index: 1000;
+}
+
+.scroll-toggle-btn:hover {
+  transform: scale(1.1);
+  background: var(--primary-hover, #3a14b3);
+}
+
+.scroll-toggle-btn svg {
+  transition: transform 0.3s ease;
+}
+
+.scroll-toggle-btn.scrolled svg {
+  transform: rotate(180deg);
+}
+
 th {
   color: var(--text-muted);
   font-weight: 700;
@@ -528,7 +627,7 @@ tr.stale-row td {
 .wrap-text {
   white-space: normal;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -536,7 +635,7 @@ tr.stale-row td {
 }
 
 .unvan-text {
-  max-width: 220px;
+  max-width: 270px;
   font-size: 0.75rem;
 }
 
@@ -1032,6 +1131,11 @@ tr.stale-row td {
   flex-shrink: 0;
 }
 
+/* Gradient icons for BES Summary */
+.summary-icon svg {
+  flex-shrink: 0;
+}
+
 
 .summary-info {
   display: flex;
@@ -1252,6 +1356,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #type-sell:checked+.toggle-btn.sell {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+/* BES Transaction Toggle */
+#bes-type-buy:checked+.toggle-btn.buy {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border-color: #10b981;
+}
+
+#bes-type-sell:checked+.toggle-btn.sell {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
   border-color: #ef4444;

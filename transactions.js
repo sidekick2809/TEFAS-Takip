@@ -8,6 +8,8 @@ let portfolio = [];
 let dashboardSort = { col: 'currentValue', dir: 'desc' };
 let weightChartInstance = null;
 let pnlChartInstance = null;
+let dailyPerfChartInstance = null;
+let weeklyPerfChartInstance = null;
 
 // --- DOM elements ---
 const pfFundSearch = document.getElementById('pf-fund-search');
@@ -48,9 +50,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         if (breadcrumbEl) breadcrumbEl.textContent = tabName;
         if (mainTitleEl) {
             if (target === 'tab-dashboard') mainTitleEl.textContent = 'Ana Dashboard';
-            else if (target === 'tab-veriler') mainTitleEl.textContent = 'Yatırım Fonları';
+            else if (target === 'tab-veriler') mainTitleEl.textContent = 'FON Verileri';
             else if (target === 'tab-veriler-bes') mainTitleEl.textContent = 'BES Fonları';
-            else if (target === 'tab-portfolio') mainTitleEl.textContent = 'Portföy İşlemleri';
+            else if (target === 'tab-portfolio') mainTitleEl.textContent = 'FON İşlemleri';
+            else if (target === 'tab-bes-portfolio') mainTitleEl.textContent = 'BES İşlemleri';
             else if (target === 'tab-flow') mainTitleEl.textContent = 'Para Akışı Analizi';
         }
 
@@ -63,6 +66,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
         if (target === 'tab-portfolio') {
             renderPortfolio();
+        } else if (target === 'tab-bes-portfolio') {
+            renderBesPortfolio();
         } else if (target === 'tab-dashboard') {
             renderDashboard();
         } else if (target === 'tab-flow') {
@@ -291,6 +296,62 @@ function renderPortfolio() {
     });
     attachTransactionListeners();
     updateSummary(processedForSummary, data);
+
+    // Update FON Summary and Charts
+    updateFonSummary(processedForSummary, data);
+
+    // Aggregate for FON charts
+    const aggregated = {};
+    const chron = [...portfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+    chron.forEach(e => {
+        if (!aggregated[e.code]) {
+            aggregated[e.code] = {
+                code: e.code,
+                name: e.name,
+                totalLots: 0,
+                totalCost: 0,
+                realizedProfit: 0
+            };
+        }
+        const fund = aggregated[e.code];
+        if (e.type === 'AL') {
+            fund.totalLots += e.lots;
+            fund.totalCost += (e.lots * e.buyPrice);
+        } else {
+            const avg = fund.totalLots > 0 ? (fund.totalCost / fund.totalLots) : 0;
+            const profit = (e.buyPrice - avg) * e.lots;
+            fund.realizedProfit += profit;
+
+            fund.totalLots -= e.lots;
+            fund.totalCost -= (e.lots * avg);
+            if (fund.totalLots <= 0) {
+                fund.totalLots = 0;
+                fund.totalCost = 0;
+            }
+        }
+    });
+
+    const fonFundRows = [];
+    Object.values(aggregated).forEach(fund => {
+        if (fund.totalLots <= 0) return;
+
+        const liveRow = data.find(r => r[0] === fund.code);
+        const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+        const currentValue = fund.totalLots * currentPrice;
+
+        const avgCost = fund.totalLots !== 0 ? (fund.totalCost / fund.totalLots) : 0;
+        const pnl = currentValue - fund.totalCost;
+
+        fonFundRows.push({
+            ...fund,
+            currentPrice,
+            currentValue,
+            avgCost,
+            pnl
+        });
+    });
+
+    renderFonCharts(fonFundRows);
 }
 
 // --- Render Dashboard ---
@@ -446,6 +507,12 @@ function renderCharts(fundRows) {
     const gridColor = isLight ? '#E9EDF7' : '#1B254B';
     const primaryColor = isLight ? '#4318FF' : '#7551FF';
 
+    // Color palette for charts
+    const chartColors = [
+        '#7551FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+        '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'
+    ];
+
 
     // Chart 1: Weight Chart (Sorted by Current Value)
     const totalVal = fundRows.reduce((acc, f) => acc + (f.currentValue || 0), 0);
@@ -464,8 +531,8 @@ function renderCharts(fundRows) {
                 datasets: [{
                     label: 'Portföy Ağırlığı (%)',
                     data: weightValues,
-                    backgroundColor: primaryColor,
-                    borderColor: primaryColor,
+                    backgroundColor: chartColors.slice(0, weightLabels.length),
+                    borderColor: chartColors.slice(0, weightLabels.length),
                     borderWidth: 0,
                     borderRadius: 10
 
@@ -554,6 +621,114 @@ function renderCharts(fundRows) {
             }
         });
     }
+
+    // Chart 3: Daily Performance Chart (1G %)
+    if (dailyPerfChartInstance) dailyPerfChartInstance.destroy();
+
+    const ctxDailyPerf = document.getElementById('daily-perf-chart');
+    if (ctxDailyPerf) {
+        const dailyPerfData = [...fundRows].filter(f => f.g1 !== null).sort((a, b) => b.g1 - a.g1);
+        const dailyPerfLabels = dailyPerfData.map(f => f.code);
+        const dailyPerfValues = dailyPerfData.map(f => f.g1 * 100);
+        const dailyPerfColors = dailyPerfValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
+
+        dailyPerfChartInstance = new Chart(ctxDailyPerf, {
+            type: 'bar',
+            data: {
+                labels: dailyPerfLabels,
+                datasets: [{
+                    label: '1G %',
+                    data: dailyPerfValues,
+                    backgroundColor: dailyPerfColors,
+                    borderColor: dailyPerfColors,
+                    borderWidth: 0,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'x',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `%${context.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor, font: { weight: '500' } },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            font: { weight: '500' },
+                            callback: (value) => `%${value}`
+                        },
+                        grid: { color: gridColor, drawBorder: false },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 4: Weekly Performance Chart (1H %)
+    if (weeklyPerfChartInstance) weeklyPerfChartInstance.destroy();
+
+    const ctxWeeklyPerf = document.getElementById('weekly-perf-chart');
+    if (ctxWeeklyPerf) {
+        const weeklyPerfData = [...fundRows].filter(f => f.h1 !== null).sort((a, b) => b.h1 - a.h1);
+        const weeklyPerfLabels = weeklyPerfData.map(f => f.code);
+        const weeklyPerfValues = weeklyPerfData.map(f => f.h1 * 100);
+        const weeklyPerfColors = weeklyPerfValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
+
+        weeklyPerfChartInstance = new Chart(ctxWeeklyPerf, {
+            type: 'bar',
+            data: {
+                labels: weeklyPerfLabels,
+                datasets: [{
+                    label: '1H %',
+                    data: weeklyPerfValues,
+                    backgroundColor: weeklyPerfColors,
+                    borderColor: weeklyPerfColors,
+                    borderWidth: 0,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'x',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `%${context.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor, font: { weight: '500' } },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            font: { weight: '500' },
+                            callback: (value) => `%${value}`
+                        },
+                        grid: { color: gridColor, drawBorder: false },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 }
 
 function attachTransactionListeners() {
@@ -598,13 +773,14 @@ function updateSummary(rows, data) {
     });
 
     const realizedEl = document.getElementById('pf-realized-profit');
-    realizedEl.textContent = `₺${fmtNum(totalRealized)}`;
+    realizedEl.textContent = `₺${fmtNum(totalRealized, 0)}`;
     realizedEl.className = `summary-value ${totalRealized > 0 ? 'val-up' : totalRealized < 0 ? 'val-down' : 'val-neutral'}`;
 
     if (portfolio.length === 0) {
-        document.getElementById('pf-total-investment').textContent = '₺0.00';
-        document.getElementById('pf-total-cost').textContent = '₺0.00';
+        document.getElementById('pf-total-investment').textContent = '₺0';
+        document.getElementById('pf-total-cost').textContent = '₺0';
         document.getElementById('pf-daily-change').textContent = '-';
+        document.getElementById('pf-weekly-change').textContent = '-';
         document.getElementById('pf-total-pnl').textContent = '-';
         return;
     }
@@ -625,21 +801,50 @@ function updateSummary(rows, data) {
         return acc + (r.buyValue * mult);
     }, 0);
 
-    document.getElementById('pf-total-investment').textContent = `₺${fmtNum(totalRequestedInvestment)}`;
-    document.getElementById('pf-total-cost').textContent = `₺${fmtNum(totalCost)}`;
+    document.getElementById('pf-total-investment').textContent = `₺${fmtNum(totalRequestedInvestment, 0)}`;
+    document.getElementById('pf-total-cost').textContent = `₺${fmtNum(totalCost, 0)}`;
 
-    // Total Daily Change (₺)
+    // Total Daily Change (₺) - using formula: GD - (LOT * price1)
     let dailyChangeTl = 0;
-    rows.forEach(r => {
-        const liveRow = data.find(live => live[0] === r.entry.code);
-        if (liveRow && liveRow[2] !== null) {
-            dailyChangeTl += r.currValue * liveRow[2];
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price1 > 0) {
+                    dailyChangeTl += GD - (netLots * price1);
+                }
+            }
         }
     });
 
     const dailyEl = document.getElementById('pf-daily-change');
-    dailyEl.textContent = `${dailyChangeTl >= 0 ? '+' : ''}₺${fmtNum(dailyChangeTl)}`;
+    dailyEl.textContent = `${dailyChangeTl >= 0 ? '+' : ''}₺${fmtNum(dailyChangeTl, 0)}`;
     dailyEl.className = `summary-value ${dailyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
+
+    // Total Weekly Change (₺) - using formula: GD - (LOT * price7)
+    let weeklyChangeTl = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price7 > 0) {
+                    weeklyChangeTl += GD - (netLots * price7);
+                }
+            }
+        }
+    });
+
+    const weeklyEl = document.getElementById('pf-weekly-change');
+    weeklyEl.textContent = `${weeklyChangeTl >= 0 ? '+' : ''}₺${fmtNum(weeklyChangeTl, 0)}`;
+    weeklyEl.className = `summary-value ${weeklyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
 
     // Güncel Kar (Unrealized PnL of active holdings)
     let guncelKar = 0;
@@ -669,7 +874,7 @@ function updateSummary(rows, data) {
     });
 
     const pnlEl = document.getElementById('pf-total-pnl');
-    pnlEl.textContent = `${guncelKar >= 0 ? '+' : ''}₺${fmtNum(guncelKar)}`;
+    pnlEl.textContent = `${guncelKar >= 0 ? '+' : ''}₺${fmtNum(guncelKar, 0)}`;
     pnlEl.className = `summary-value ${guncelKar >= 0 ? 'val-up' : 'val-down'}`;
 }
 
@@ -695,16 +900,26 @@ function fmtPercent(val) {
 // --- Persistence ---
 async function loadPortfolio() {
     try {
-        // Try to get from Server first
-        const response = await fetch('/api/local-portfolio');
-        if (response.ok) {
-            const serverData = await response.json();
-            if (serverData && Array.isArray(serverData)) {
-                portfolio = serverData;
-                localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
-                return portfolio;
-            }
+        // Try to get from Server first - load both YAT and EMK
+        const yatResponse = await fetch('/api/local-portfolio?fundType=YAT');
+        const emkResponse = await fetch('/api/local-portfolio?fundType=EMK');
+
+        let yatData = [];
+        let emkData = [];
+
+        if (yatResponse.ok) {
+            yatData = await yatResponse.json();
         }
+        if (emkResponse.ok) {
+            emkData = await emkResponse.json();
+        }
+
+        // Merge both types
+        portfolio = [...yatData, ...emkData];
+
+        // Save merged data to localStorage
+        localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
+        return portfolio;
     } catch (e) {
         console.warn('Backend connection failed, using localStorage');
     }
@@ -720,13 +935,36 @@ async function savePortfolio() {
     // Save to localStorage
     localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolio));
 
-    // Save to Server
+    // Separate portfolio by fundType - determine based on fund code
+    const besData = window.besData || JSON.parse(localStorage.getItem('tefasData-bes') || '[]');
+    const yatPortfolio = portfolio.filter(p => {
+        const fundCode = p.code;
+        // Check if fund exists in BES data
+        return !besData.some(f => f[0] === fundCode);
+    });
+
+    const emkPortfolio = portfolio.filter(p => {
+        const fundCode = p.code;
+        // Check if fund exists in BES data
+        return besData.some(f => f[0] === fundCode);
+    });
+
+    // Save to Server - both types
     try {
-        await fetch('/api/local-portfolio', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(portfolio)
-        });
+        if (yatPortfolio.length > 0) {
+            await fetch('/api/local-portfolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows: yatPortfolio, fundType: 'YAT' })
+            });
+        }
+        if (emkPortfolio.length > 0) {
+            await fetch('/api/local-portfolio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows: emkPortfolio, fundType: 'EMK' })
+            });
+        }
     } catch (e) {
         console.error('Failed to sync with backend');
     }
@@ -735,6 +973,7 @@ async function savePortfolio() {
 // Custom async initialization
 async function initApp() {
     await loadPortfolio();
+    await initBesPortfolio();
     updateBadge();
     initDashboardSorting();
     renderDashboard();
@@ -1133,15 +1372,1359 @@ document.getElementById('import-file-input')?.addEventListener('change', (e) => 
     reader.readAsText(file, 'UTF-8');
 });
 
+// ===== BES PORTFOLIO EXPORT/IMPORT FUNCTIONALITY =====
+
+// BES Export CSV
+document.getElementById('export-bes-transactions-csv')?.addEventListener('click', () => {
+    const headers = ['NO', 'KOD', 'TIP', 'LOT', 'ÖNCEKİ LOT', 'KÜM LOT', 'BİRİM FİYAT', 'MALİYET', 'SATIŞ KARI', 'TARİH'];
+    const chronological = [...besPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+    const runningStats = {};
+    const exportData = chronological.map((e, index) => {
+        if (!runningStats[e.code]) runningStats[e.code] = { lots: 0, cost: 0 };
+        const stats = runningStats[e.code];
+        const prevLots = stats.lots;
+        let profit = 0;
+        if (e.type === 'AL') {
+            stats.lots += e.lots;
+            stats.cost += e.lots * e.buyPrice;
+        } else {
+            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
+            profit = (e.buyPrice - avg) * e.lots;
+            stats.lots -= e.lots;
+            stats.cost -= e.lots * avg;
+        }
+        return [
+            index + 1, e.code, e.type, e.lots, prevLots, stats.lots,
+            e.buyPrice.toFixed(4), (e.lots * e.buyPrice).toFixed(2),
+            e.type === 'SAT' ? profit.toFixed(2) : '0', e.buyDate
+        ];
+    });
+    window.downloadCSV(exportData, headers, 'BES_Islemler_' + new Date().toISOString().split('T')[0]);
+});
+
+// BES Export XLS
+document.getElementById('export-bes-transactions-xls')?.addEventListener('click', () => {
+    const headers = ['NO', 'KOD', 'TIP', 'LOT', 'ÖNCEKİ LOT', 'KÜM LOT', 'BİRİM FİYAT', 'MALİYET', 'SATIŞ KARI', 'TARİH'];
+    const chronological = [...besPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+    const runningStats = {};
+    const exportData = chronological.map((e, index) => {
+        if (!runningStats[e.code]) runningStats[e.code] = { lots: 0, cost: 0 };
+        const stats = runningStats[e.code];
+        const prevLots = stats.lots;
+        let profit = 0;
+        if (e.type === 'AL') {
+            stats.lots += e.lots;
+            stats.cost += e.lots * e.buyPrice;
+        } else {
+            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
+            profit = (e.buyPrice - avg) * e.lots;
+            stats.lots -= e.lots;
+            stats.cost -= e.lots * avg;
+        }
+        return [
+            index + 1, e.code, e.type, e.lots, prevLots, stats.lots,
+            e.buyPrice.toFixed(4), (e.lots * e.buyPrice).toFixed(2),
+            e.type === 'SAT' ? profit.toFixed(2) : '0', e.buyDate
+        ];
+    });
+    window.downloadXLS(exportData, headers, 'BES_Islemler_' + new Date().toISOString().split('T')[0]);
+});
+
+// Toggle BES import dropdown
+const besImportDropdown = document.getElementById('bes-import-dropdown');
+const besImportTriggerBtn = document.getElementById('bes-import-trigger-btn');
+if (besImportTriggerBtn && besImportDropdown) {
+    besImportTriggerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        besImportDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!besImportDropdown.contains(e.target)) {
+            besImportDropdown.classList.remove('open');
+        }
+    });
+}
+
+// Download BES CSV Template
+document.getElementById('bes-import-download-template')?.addEventListener('click', () => {
+    besImportDropdown?.classList.remove('open');
+    const headers = ['TIP', 'KOD', 'LOT', 'BIRIM_FIYAT', 'TARIH'];
+    const examples = [
+        ['AL', 'BES001', '100', '1.2500', '2024-01-15'],
+        ['AL', 'BES002', '250', '0.8750', '2024-02-01'],
+        ['SAT', 'BES001', '50', '1.5000', '2024-03-10'],
+    ];
+    const csvContent = [headers, ...examples]
+        .map(row => row.join(';'))
+        .join('\r\n');
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'BES_Islemler_Sablonu.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// Trigger BES file picker
+document.getElementById('bes-import-upload-btn')?.addEventListener('click', () => {
+    besImportDropdown?.classList.remove('open');
+    document.getElementById('bes-import-file-input')?.click();
+});
+
+// Handle BES file selection & parse
+document.getElementById('bes-import-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        try {
+            const text = evt.target.result.replace(/^\uFEFF/, '');
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+
+            if (lines.length < 2) {
+                showImportStatus('Dosya boş veya geçersiz format.', 'error');
+                return;
+            }
+
+            const firstLine = lines[0];
+            const delimiter = firstLine.includes(';') ? ';' : ',';
+            const headerLine = lines[0].split(delimiter).map(h => h.trim().toUpperCase());
+
+            const idxTip = headerLine.indexOf('TIP');
+            const idxKod = headerLine.indexOf('KOD');
+            const idxLot = headerLine.indexOf('LOT');
+            const idxFiyat = headerLine.indexOf('BIRIM_FIYAT') ?? headerLine.indexOf('FIYAT');
+            const idxTarih = headerLine.indexOf('TARIH');
+
+            if (idxTip === -1 || idxKod === -1 || idxLot === -1 || idxFiyat === -1 || idxTarih === -1) {
+                showImportStatus('Eksik veya hatalı başlık. Gerekli: TIP, KOD, LOT, BIRIM_FIYAT, TARIH', 'error');
+                return;
+            }
+
+            const data = window.besData || [];
+            let imported = 0, skipped = 0;
+            const errors = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(delimiter).map(c => c.trim());
+                if (cols.length < 5) { skipped++; continue; }
+
+                const tip = cols[idxTip].toUpperCase();
+                const kod = cols[idxKod].toUpperCase();
+                const lot = parseFloat(cols[idxLot].replace(',', '.'));
+                const fiyat = parseFloat(cols[idxFiyat].replace(',', '.'));
+                const tarih = cols[idxTarih];
+
+                if (!['AL', 'SAT'].includes(tip)) { errors.push(`Satır ${i}: Geçersiz tip`); skipped++; continue; }
+                if (!lot || lot <= 0) { errors.push(`Satır ${i}: Geçersiz lot`); skipped++; continue; }
+                if (!fiyat || fiyat <= 0) { errors.push(`Satır ${i}: Geçersiz fiyat`); skipped++; continue; }
+
+                const nameRow = data.find(r => r[0] === kod);
+                besPortfolio.push({
+                    id: Date.now() + i,
+                    code: kod,
+                    name: nameRow ? nameRow[1] : '',
+                    lots: lot,
+                    buyPrice: fiyat,
+                    buyDate: tarih,
+                    type: tip
+                });
+                imported++;
+            }
+
+            await saveBesPortfolio();
+
+            if (document.getElementById('tab-bes-portfolio').classList.contains('active')) renderBesPortfolio();
+
+            let msg = `${imported} BES işlemi başarıyla içe aktarıldı.`;
+            if (skipped > 0) msg += ` ${skipped} satır atlandı.`;
+            if (errors.length > 0) msg += `\n\nHatalar:\n` + errors.slice(0, 5).join('\n');
+            showImportStatus(msg, imported > 0 ? 'success' : 'error');
+
+        } catch (err) {
+            console.error('BES Import error:', err);
+            showImportStatus('Dosya okunurken hata oluştu: ' + err.message, 'error');
+        } finally {
+            e.target.value = '';
+        }
+    };
+    reader.readAsText(file, 'UTF-8');
+});
+
 function showImportStatus(message, type) {
     const el = document.getElementById('status-message');
     if (!el) { alert(message); return; }
     el.textContent = message;
     el.className = 'status-message ' + (type === 'success' ? 'status-success' : 'status-error');
-    // Scroll to top
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     setTimeout(() => {
         el.className = 'status-message';
         el.textContent = '';
     }, 6000);
+}
+
+// ===== BES PORTFOLIO MANAGEMENT =====
+
+const BES_PORTFOLIO_KEY = 'tefasBesPortfolio';
+
+// --- BES State ---
+let besPortfolio = [];
+
+// --- BES DOM elements ---
+const besFundSearch = document.getElementById('bes-fund-search');
+const besSuggestions = document.getElementById('bes-fund-suggestions');
+const besLots = document.getElementById('bes-lots');
+const besBuyPrice = document.getElementById('bes-buy-price');
+const besBuyDate = document.getElementById('bes-buy-date');
+const besAddBtn = document.getElementById('bes-add-btn');
+const besPortfolioBody = document.getElementById('bes-portfolio-body');
+const besTransactionsFilter = document.getElementById('bes-transactions-filter');
+
+// Default buy date to today
+besBuyDate.value = new Date().toISOString().split('T')[0];
+
+let selectedBesFund = null;
+
+// --- Load BES Portfolio from API ---
+async function loadBesPortfolio() {
+    try {
+        const res = await fetch('/api/bes-portfolio');
+        if (res.ok) {
+            besPortfolio = await res.json();
+        }
+    } catch (err) {
+        console.error('Failed to load BES portfolio:', err);
+    }
+}
+
+// --- Save BES Portfolio to API ---
+async function saveBesPortfolio() {
+    try {
+        await fetch('/api/bes-portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rows: besPortfolio })
+        });
+    } catch (err) {
+        console.error('Failed to save BES portfolio:', err);
+    }
+}
+
+// --- BES Fund Search Suggestions ---
+besFundSearch.addEventListener('input', () => {
+    selectedBesFund = null;
+    const q = besFundSearch.value.trim().toUpperCase();
+
+    // Use BES data (EMK) from window
+    const data = window.besData || [];
+    if (!q || data.length === 0) {
+        besSuggestions.style.display = 'none';
+        return;
+    }
+
+    const matches = data.filter(row =>
+        row[0].includes(q) || (row[1] && row[1].toUpperCase().includes(q))
+    ).slice(0, 8);
+
+    if (matches.length === 0) {
+        besSuggestions.style.display = 'none';
+        return;
+    }
+
+    besSuggestions.innerHTML = '';
+    matches.forEach(row => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.innerHTML = `<strong>${row[0]}</strong><span>${row[1]}</span>`;
+        item.addEventListener('mousedown', () => {
+            selectedBesFund = { code: row[0], name: row[1] };
+            besFundSearch.value = `${row[0]} — ${row[1]}`;
+            // Pre-fill price if available
+            if (row[15]) besBuyPrice.value = row[15].toFixed(4);
+            besSuggestions.style.display = 'none';
+        });
+        besSuggestions.appendChild(item);
+    });
+
+    besSuggestions.style.display = 'block';
+});
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', e => {
+    if (!besFundSearch.contains(e.target)) besSuggestions.style.display = 'none';
+});
+
+// --- Add BES Fund ---
+besAddBtn.addEventListener('click', async () => {
+    if (!selectedBesFund) {
+        alert('Lütfen listeden bir BES fonu seçin.');
+        return;
+    }
+
+    const lots = parseFloat(besLots.value);
+    const buyPrice = parseFloat(besBuyPrice.value);
+    const buyDate = besBuyDate.value;
+    const type = document.querySelector('input[name="bes-pf-type"]:checked').value;
+
+    if (!lots || lots <= 0) { alert('Lütfen geçerli bir lot girin.'); return; }
+    if (!buyPrice || buyPrice <= 0) { alert('Lütfen geçerli bir alış fiyatı girin.'); return; }
+    if (!buyDate) { alert('Lütfen bir tarih seçin.'); return; }
+
+    const entry = {
+        id: Date.now(),
+        code: selectedBesFund.code,
+        name: selectedBesFund.name,
+        lots,
+        buyPrice,
+        buyDate,
+        type // AL or SAT
+    };
+
+    besPortfolio.push(entry);
+    await saveBesPortfolio();
+
+    if (document.getElementById('tab-bes-portfolio').classList.contains('active')) renderBesPortfolio();
+
+    // Reset Form
+    besFundSearch.value = '';
+    besLots.value = '';
+    besBuyPrice.value = '';
+    selectedBesFund = null;
+});
+
+// --- Remove BES Fund ---
+async function removeBesFund(id) {
+    besPortfolio = besPortfolio.filter(item => item.id !== id);
+    await saveBesPortfolio();
+
+    if (document.getElementById('tab-bes-portfolio').classList.contains('active')) renderBesPortfolio();
+}
+
+// --- Render BES Portfolio ---
+function renderBesPortfolio() {
+    // Use BES data from window
+    const data = window.besData || [];
+    const filterText = besTransactionsFilter.value.trim().toUpperCase();
+
+    // Filter displayed portfolio for table
+    let filteredPortfolio = besPortfolio;
+    if (filterText) {
+        filteredPortfolio = besPortfolio.filter(p => p.code.toUpperCase().includes(filterText));
+    }
+
+    if (filteredPortfolio.length === 0) {
+        besPortfolioBody.innerHTML = `<tr><td colspan="11" class="empty-state">${filterText ? 'Arama sonucu bulunamadı.' : 'BES işlem listeniz boş. Yukarıdan fon ekleyebilirsiniz.'}</td></tr>`;
+        updateBesSummary([], data);
+        return;
+    }
+
+    besPortfolioBody.innerHTML = '';
+
+    // Sort portfolio by Buy Date descending (Z to A) for display
+    const displayList = [...filteredPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+
+    // Pre-calculate Realized Profit & Cumulative Totals
+    const statsById = {};
+    const runningStats = {};
+
+    const chronological = [...besPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+
+    chronological.forEach((e, index) => {
+        if (!runningStats[e.code]) runningStats[e.code] = { lots: 0, cost: 0 };
+        const stats = runningStats[e.code];
+
+        const prevLots = stats.lots;
+        let profit = 0;
+
+        if (e.type === 'AL') {
+            stats.lots += e.lots;
+            stats.cost += e.lots * e.buyPrice;
+            profit = 0;
+        } else {
+            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
+            profit = (e.buyPrice - avg) * e.lots;
+
+            stats.lots -= e.lots;
+            stats.cost -= e.lots * avg;
+            if (stats.lots <= 0) { stats.lots = 0; stats.cost = 0; }
+        }
+
+        statsById[e.id] = {
+            rowNo: index + 1,
+            prevLots: prevLots,
+            cumLots: stats.lots,
+            profit: profit
+        };
+    });
+
+    displayList.forEach((entry) => {
+        const buyValue = entry.lots * entry.buyPrice;
+        const stats = statsById[entry.id];
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+        <td class="val-neutral" style="font-size: 0.85rem; color: var(--text-muted);">${stats.rowNo}</td>
+        <td>
+            <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${entry.code}" target="_blank" class="fund-link">
+                <strong>${entry.code}</strong>
+            </a>
+        </td>
+        <td><span class="type-badge ${entry.type}">${entry.type === 'AL' ? 'ALIŞ' : 'SATIŞ'}</span></td>
+        <td>${entry.lots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td class="val-neutral">${stats.prevLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td class="val-neutral"><strong>${stats.cumLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong></td>
+        <td>${fmtNum(entry.buyPrice, 4)}</td>
+        <td class="val-neutral">₺${fmtNum(buyValue)}</td>
+        <td class="${stats.profit > 0 ? 'val-up' : stats.profit < 0 ? 'val-down' : 'val-neutral'}">
+            ${entry.type === 'SAT' ? '₺' + fmtNum(stats.profit) : '0'}
+        </td>
+        <td>${entry.buyDate}</td>
+        <td>
+            <div style="display: flex; gap: 0.4rem;">
+                <button class="remove-btn" data-bes-id="${entry.id}" title="Kaldır">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+            </div>
+        </td>
+    `;
+        besPortfolioBody.appendChild(tr);
+    });
+
+    attachBesTransactionListeners();
+
+    // Update summary and charts
+    const processedForSummary = [];
+    besPortfolio.forEach(e => {
+        const liveRow = data.find(r => r[0] === e.code);
+        const currentPrice = liveRow ? (liveRow[15] || e.buyPrice) : e.buyPrice;
+        const buyValue = e.lots * e.buyPrice;
+        const currValue = e.lots * currentPrice;
+        const pnl = e.type === 'AL' ? (currValue - buyValue) : (buyValue - currValue);
+        processedForSummary.push({ entry: e, currValue, buyValue, pnl });
+    });
+    updateBesSummary(processedForSummary, data);
+
+    // Aggregate for charts
+    const aggregated = {};
+    const chron = [...besPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+    chron.forEach(e => {
+        if (!aggregated[e.code]) {
+            aggregated[e.code] = {
+                code: e.code,
+                name: e.name,
+                totalLots: 0,
+                totalCost: 0,
+                realizedProfit: 0
+            };
+        }
+        const fund = aggregated[e.code];
+        if (e.type === 'AL') {
+            fund.totalLots += e.lots;
+            fund.totalCost += (e.lots * e.buyPrice);
+        } else {
+            const avg = fund.totalLots > 0 ? (fund.totalCost / fund.totalLots) : 0;
+            const profit = (e.buyPrice - avg) * e.lots;
+            fund.realizedProfit += profit;
+
+            fund.totalLots -= e.lots;
+            fund.totalCost -= (e.lots * avg);
+            if (fund.totalLots <= 0) {
+                fund.totalLots = 0;
+                fund.totalCost = 0;
+            }
+        }
+    });
+
+    const fundRows = [];
+    Object.values(aggregated).forEach(fund => {
+        if (fund.totalLots <= 0) return;
+
+        const liveRow = data.find(r => r[0] === fund.code);
+        const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+        const currentValue = fund.totalLots * currentPrice;
+
+        const avgCost = fund.totalLots !== 0 ? (fund.totalCost / fund.totalLots) : 0;
+        const pnl = currentValue - fund.totalCost;
+
+        fundRows.push({
+            ...fund,
+            currentPrice,
+            currentValue,
+            avgCost,
+            pnl
+        });
+    });
+
+    renderBesCharts(fundRows);
+}
+
+// --- Attach BES Transaction Listeners ---
+function attachBesTransactionListeners() {
+    // Remove buttons
+    document.querySelectorAll('.remove-btn[data-bes-id]').forEach(btn => {
+        btn.onclick = () => {
+            const id = parseInt(btn.dataset.besId);
+            if (confirm('Bu işlemi kaldırmak istediğinizden emin misiniz?')) {
+                removeBesFund(id);
+            }
+        };
+    });
+}
+
+// --- BES Filter Listener ---
+besTransactionsFilter.addEventListener('input', renderBesPortfolio);
+
+// --- Initialize BES Portfolio ---
+async function initBesPortfolio() {
+    await loadBesPortfolio();
+    if (document.getElementById('tab-bes-portfolio').classList.contains('active')) {
+        renderBesPortfolio();
+    }
+}
+
+// --- BES Chart Instances ---
+let besWeightChartInstance = null;
+let besPnlChartInstance = null;
+
+// --- FON Chart Instances ---
+let fonWeightChartInstance = null;
+let fonPnlChartInstance = null;
+
+// --- Update FON Summary ---
+function updateBesSummary(rows, data) {
+    // Aggregate by code to find holdings (net lots)
+    const aggLots = {};
+    besPortfolio.forEach(e => {
+        if (!aggLots[e.code]) aggLots[e.code] = 0;
+        aggLots[e.code] += (e.lots * (e.type === 'AL' ? 1 : -1));
+    });
+
+    // Count funds with positive balance
+    const heldFundsCount = Object.values(aggLots).filter(lots => lots > 0.0001).length;
+
+    // --- Calculate Grand Total Realized Profit ---
+    let totalRealized = 0;
+    const runningStats = {}; // { code: { lots, cost } }
+    const chronological = [...besPortfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+
+    chronological.forEach(e => {
+        if (!runningStats[e.code]) runningStats[e.code] = { lots: 0, cost: 0 };
+        const stats = runningStats[e.code];
+        if (e.type === 'AL') {
+            stats.lots += e.lots;
+            stats.cost += e.lots * e.buyPrice;
+        } else {
+            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
+            totalRealized += (e.buyPrice - avg) * e.lots;
+            stats.lots -= e.lots;
+            stats.cost -= e.lots * avg;
+            if (stats.lots <= 0) { stats.lots = 0; stats.cost = 0; }
+        }
+    });
+
+    const realizedEl = document.getElementById('bes-realized-profit');
+    if (realizedEl) {
+        realizedEl.textContent = `₺${fmtNum(totalRealized, 0)}`;
+        realizedEl.className = `summary-value ${totalRealized > 0 ? 'val-up' : totalRealized < 0 ? 'val-down' : 'val-neutral'}`;
+    }
+
+    if (besPortfolio.length === 0) {
+        if (document.getElementById('bes-total-investment')) document.getElementById('bes-total-investment').textContent = '₺0';
+        if (document.getElementById('bes-total-cost')) document.getElementById('bes-total-cost').textContent = '₺0';
+        if (document.getElementById('bes-daily-change')) document.getElementById('bes-daily-change').textContent = '-';
+        if (document.getElementById('bes-weekly-change')) document.getElementById('bes-weekly-change').textContent = '-';
+        if (document.getElementById('bes-total-pnl')) document.getElementById('bes-total-pnl').textContent = '-';
+        return;
+    }
+
+    let totalRequestedInvestment = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+            totalRequestedInvestment += (netLots * currentPrice);
+        }
+    });
+
+    // Maliyet calculation (Net cash out)
+    const totalCost = rows.reduce((acc, r) => {
+        const mult = r.entry.type === 'AL' ? 1 : -1;
+        return acc + (r.buyValue * mult);
+    }, 0);
+
+    if (document.getElementById('bes-total-investment')) {
+        document.getElementById('bes-total-investment').textContent = `₺${fmtNum(totalRequestedInvestment, 0)}`;
+    }
+    if (document.getElementById('bes-total-cost')) {
+        document.getElementById('bes-total-cost').textContent = `₺${fmtNum(totalCost, 0)}`;
+    }
+
+    // Total Daily Change (₺) - using formula: GD - (LOT * price1)
+    let dailyChangeTl = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price1 > 0) {
+                    dailyChangeTl += GD - (netLots * price1);
+                }
+            }
+        }
+    });
+
+    const dailyEl = document.getElementById('bes-daily-change');
+    if (dailyEl) {
+        dailyEl.textContent = `${dailyChangeTl >= 0 ? '+' : ''}₺${fmtNum(dailyChangeTl, 0)}`;
+        dailyEl.className = `summary-value ${dailyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
+    }
+
+    // Weekly Change (₺) - using formula: GD - (LOT * price7)
+    let weeklyChangeTl = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price7 > 0) {
+                    weeklyChangeTl += GD - (netLots * price7);
+                }
+            }
+        }
+    });
+
+    const weeklyEl = document.getElementById('bes-weekly-change');
+    if (weeklyEl) {
+        weeklyEl.textContent = `${weeklyChangeTl >= 0 ? '+' : ''}₺${fmtNum(weeklyChangeTl, 0)}`;
+        weeklyEl.className = `summary-value ${weeklyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
+    }
+
+    // Güncel Kar (Unrealized PnL of active holdings)
+    let guncelKar = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            // Find average cost for this code
+            const chron = besPortfolio.filter(p => p.code === code).sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+            let runningLots = 0;
+            let runningCost = 0;
+            chron.forEach(e => {
+                if (e.type === 'AL') {
+                    runningLots += e.lots;
+                    runningCost += e.lots * e.buyPrice;
+                } else {
+                    const avg = runningLots > 0 ? (runningCost / runningLots) : 0;
+                    runningLots -= e.lots;
+                    runningCost -= e.lots * avg;
+                    if (runningLots < 0) { runningLots = 0; runningCost = 0; }
+                }
+            });
+            const liveRow = data.find(r => r[0] === code);
+            const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+            const currentValue = runningLots * currentPrice;
+            guncelKar += (currentValue - runningCost);
+        }
+    });
+
+    const pnlEl = document.getElementById('bes-total-pnl');
+    if (pnlEl) {
+        pnlEl.textContent = `${guncelKar >= 0 ? '+' : ''}₺${fmtNum(guncelKar, 0)}`;
+        pnlEl.className = `summary-value ${guncelKar >= 0 ? 'val-up' : 'val-down'}`;
+    }
+
+    // --- Populate BES Fund Summary Table ---
+    const summaryTableBody = document.getElementById('bes-fund-summary-body');
+    if (summaryTableBody) {
+        // Calculate total current value for weight calculation
+        let totalCurrentValue = 0;
+        const fundSummaryData = [];
+
+        Object.keys(aggLots).forEach(code => {
+            const netLots = aggLots[code];
+            if (netLots > 0.0001) {
+                const liveRow = data.find(r => r[0] === code);
+                const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+                const currentValue = netLots * currentPrice;
+                const g1 = liveRow ? liveRow[2] : null; // 1D %
+                const h1 = liveRow ? liveRow[3] : null; // 1H %
+
+                totalCurrentValue += currentValue;
+                fundSummaryData.push({
+                    code,
+                    lots: netLots,
+                    price: currentPrice,
+                    currentValue,
+                    g1,
+                    h1
+                });
+            }
+        });
+
+        // Sort by weight (AĞIRLIK) descending
+        fundSummaryData.sort((a, b) => {
+            const weightA = totalCurrentValue > 0 ? (a.currentValue / totalCurrentValue * 100) : 0;
+            const weightB = totalCurrentValue > 0 ? (b.currentValue / totalCurrentValue * 100) : 0;
+            return weightB - weightA;
+        });
+
+        // Generate table rows
+        if (fundSummaryData.length === 0) {
+            summaryTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 1rem; color: var(--text-muted);">Portföyünüzde fon bulunmamaktadır.</td></tr>`;
+        } else {
+            summaryTableBody.innerHTML = fundSummaryData.map(fund => {
+                const weight = totalCurrentValue > 0 ? (fund.currentValue / totalCurrentValue * 100) : 0;
+                const g1Display = fund.g1 !== null ? `${fund.g1 >= 0 ? '+' : ''}${(fund.g1 * 100).toFixed(2)}%` : '-';
+                const h1Display = fund.h1 !== null ? `${fund.h1 >= 0 ? '+' : ''}${(fund.h1 * 100).toFixed(2)}%` : '-';
+                const g1Class = fund.g1 > 0 ? 'val-up' : fund.g1 < 0 ? 'val-down' : 'val-neutral';
+                const h1Class = fund.h1 > 0 ? 'val-up' : fund.h1 < 0 ? 'val-down' : 'val-neutral';
+
+                return `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 0.25rem 0.5rem; text-align: left;">
+                            <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${fund.code}" target="_blank" class="fund-link">
+                                <strong>${fund.code}</strong>
+                            </a>
+                        </td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right; color: var(--text-primary);">${Math.round(fund.lots).toLocaleString('tr-TR')}</td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right; color: var(--text-primary);">${fund.price > 0 ? fmtNum(fund.price, 4) : '-'}</td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right; color: var(--text-primary); font-weight: 600;">₺${Math.round(fund.currentValue).toLocaleString('tr-TR')}</td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right; color: var(--text-primary);">${weight.toFixed(1)}%</td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right;" class="${g1Class}">${g1Display}</td>
+                        <td style="padding: 0.25rem 0.5rem; text-align: right;" class="${h1Class}">${h1Display}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+}
+
+// --- Render BES Charts ---
+function renderBesCharts(fundRows) {
+    if (typeof Chart === 'undefined') return;
+
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#1B2559' : '#A3AED0';
+    const gridColor = isLight ? '#E9EDF7' : '#1B254B';
+
+    // Color palette for charts
+    const chartColors = [
+        '#7551FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+        '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'
+    ];
+
+    // Chart 1: Weight Chart (Sorted by Current Value)
+    const totalVal = fundRows.reduce((acc, f) => acc + (f.currentValue || 0), 0);
+    const weightData = [...fundRows].sort((a, b) => b.currentValue - a.currentValue);
+    const weightLabels = weightData.map(f => f.code);
+    const weightValues = weightData.map(f => totalVal > 0 ? (f.currentValue / totalVal * 100) : 0);
+
+    if (besWeightChartInstance) besWeightChartInstance.destroy();
+
+    const ctxWeight = document.getElementById('bes-weight-chart');
+    if (ctxWeight) {
+        besWeightChartInstance = new Chart(ctxWeight, {
+            type: 'bar',
+            data: {
+                labels: weightLabels,
+                datasets: [{
+                    label: 'Ağırlık (%)',
+                    data: weightValues,
+                    backgroundColor: chartColors.slice(0, weightLabels.length),
+                    borderColor: chartColors.slice(0, weightLabels.length),
+                    borderWidth: 0,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.label}: %${context.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: (value) => `%${value}`
+                        },
+                        grid: { color: gridColor },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 2: PnL Chart (Bar chart)
+    if (besPnlChartInstance) besPnlChartInstance.destroy();
+
+    const ctxPnl = document.getElementById('bes-pnl-chart');
+    if (ctxPnl) {
+        const pnlData = [...fundRows].sort((a, b) => b.pnl - a.pnl);
+        const pnlLabels = pnlData.map(f => f.code);
+        const pnlValues = pnlData.map(f => f.pnl);
+        const pnlColors = pnlValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
+
+        besPnlChartInstance = new Chart(ctxPnl, {
+            type: 'bar',
+            data: {
+                labels: pnlLabels,
+                datasets: [{
+                    label: 'Kar/Zarar (₺)',
+                    data: pnlValues,
+                    backgroundColor: pnlColors,
+                    borderColor: pnlColors,
+                    borderWidth: 0,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.parsed.y >= 0 ? '+' : ''}₺${fmtNum(context.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: (value) => `₺${fmtNum(value)}`
+                        },
+                        grid: { color: gridColor },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+// --- Update FON Summary ---
+function updateFonSummary(rows, data) {
+    // Aggregate by code to find holdings (net lots)
+    const aggLots = {};
+    portfolio.forEach(e => {
+        if (!aggLots[e.code]) aggLots[e.code] = 0;
+        aggLots[e.code] += (e.lots * (e.type === 'AL' ? 1 : -1));
+    });
+
+    // Calculate Grand Total Realized Profit
+    let totalRealized = 0;
+    const runningStats = {};
+    const chronological = [...portfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+
+    chronological.forEach(e => {
+        if (!runningStats[e.code]) runningStats[e.code] = { lots: 0, cost: 0 };
+        const stats = runningStats[e.code];
+        if (e.type === 'AL') {
+            stats.lots += e.lots;
+            stats.cost += e.lots * e.buyPrice;
+        } else {
+            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
+            totalRealized += (e.buyPrice - avg) * e.lots;
+            stats.lots -= e.lots;
+            stats.cost -= e.lots * avg;
+            if (stats.lots <= 0) { stats.lots = 0; stats.cost = 0; }
+        }
+    });
+
+    const realizedEl = document.getElementById('fon-realized-profit');
+    if (realizedEl) {
+        realizedEl.textContent = `₺${fmtNum(totalRealized, 0)}`;
+        realizedEl.className = `summary-value ${totalRealized > 0 ? 'val-up' : totalRealized < 0 ? 'val-down' : 'val-neutral'}`;
+    }
+
+    if (portfolio.length === 0) {
+        if (document.getElementById('fon-total-investment')) document.getElementById('fon-total-investment').textContent = '₺0';
+        if (document.getElementById('fon-total-cost')) document.getElementById('fon-total-cost').textContent = '₺0';
+        if (document.getElementById('fon-daily-change')) document.getElementById('fon-daily-change').textContent = '-';
+        if (document.getElementById('fon-weekly-change')) document.getElementById('fon-weekly-change').textContent = '-';
+        if (document.getElementById('fon-total-pnl')) document.getElementById('fon-total-pnl').textContent = '-';
+        return;
+    }
+
+    let totalRequestedInvestment = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+            totalRequestedInvestment += (netLots * currentPrice);
+        }
+    });
+
+    const totalCost = rows.reduce((acc, r) => {
+        const mult = r.entry.type === 'AL' ? 1 : -1;
+        return acc + (r.buyValue * mult);
+    }, 0);
+
+    if (document.getElementById('fon-total-investment')) {
+        document.getElementById('fon-total-investment').textContent = `₺${fmtNum(totalRequestedInvestment, 0)}`;
+    }
+    if (document.getElementById('fon-total-cost')) {
+        document.getElementById('fon-total-cost').textContent = `₺${fmtNum(totalCost, 0)}`;
+    }
+
+    // Daily Change (₺) - using formula: GD - (LOT * price1)
+    let dailyChangeTl = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price1 > 0) {
+                    dailyChangeTl += GD - (netLots * price1);
+                }
+            }
+        }
+    });
+
+    const dailyEl = document.getElementById('fon-daily-change');
+    if (dailyEl) {
+        dailyEl.textContent = `${dailyChangeTl >= 0 ? '+' : ''}₺${fmtNum(dailyChangeTl, 0)}`;
+        dailyEl.className = `summary-value ${dailyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
+    }
+
+    // Weekly Change (₺) - using formula: GD - (LOT * price7)
+    let weeklyChangeTl = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const liveRow = data.find(r => r[0] === code);
+            if (liveRow) {
+                const currentPrice = liveRow[15] || 0; // FIYAT (current)
+                const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
+                const GD = netLots * currentPrice; // Güncel Değer
+                if (price7 > 0) {
+                    weeklyChangeTl += GD - (netLots * price7);
+                }
+            }
+        }
+    });
+
+    const weeklyEl = document.getElementById('fon-weekly-change');
+    if (weeklyEl) {
+        weeklyEl.textContent = `${weeklyChangeTl >= 0 ? '+' : ''}₺${fmtNum(weeklyChangeTl, 0)}`;
+        weeklyEl.className = `summary-value ${weeklyChangeTl >= 0 ? 'val-up' : 'val-down'}`;
+    }
+
+    // Güncel Kar
+    let guncelKar = 0;
+    Object.keys(aggLots).forEach(code => {
+        const netLots = aggLots[code];
+        if (netLots > 0.0001) {
+            const chron = portfolio.filter(p => p.code === code).sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
+            let runningLots = 0;
+            let runningCost = 0;
+            chron.forEach(e => {
+                if (e.type === 'AL') {
+                    runningLots += e.lots;
+                    runningCost += e.lots * e.buyPrice;
+                } else {
+                    const avg = runningLots > 0 ? (runningCost / runningLots) : 0;
+                    runningLots -= e.lots;
+                    runningCost -= e.lots * avg;
+                    if (runningLots < 0) { runningLots = 0; runningCost = 0; }
+                }
+            });
+            const liveRow = data.find(r => r[0] === code);
+            const currentPrice = liveRow ? (liveRow[15] || 0) : 0;
+            const currentValue = runningLots * currentPrice;
+            guncelKar += (currentValue - runningCost);
+        }
+    });
+
+    const pnlEl = document.getElementById('fon-total-pnl');
+    if (pnlEl) {
+        pnlEl.textContent = `${guncelKar >= 0 ? '+' : ''}₺${fmtNum(guncelKar, 0)}`;
+        pnlEl.className = `summary-value ${guncelKar >= 0 ? 'val-up' : 'val-down'}`;
+    }
+}
+
+// --- Render FON Charts ---
+function renderFonCharts(fundRows) {
+    if (typeof Chart === 'undefined') return;
+
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#1B2559' : '#A3AED0';
+    const gridColor = isLight ? '#E9EDF7' : '#1B254B';
+
+    const chartColors = [
+        '#7551FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+        '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'
+    ];
+
+    // Chart 1: Weight Chart (Bar)
+    const totalVal = fundRows.reduce((acc, f) => acc + (f.currentValue || 0), 0);
+    const weightData = [...fundRows].sort((a, b) => b.currentValue - a.currentValue);
+    const weightLabels = weightData.map(f => f.code);
+    const weightValues = weightData.map(f => totalVal > 0 ? (f.currentValue / totalVal * 100) : 0);
+
+    if (fonWeightChartInstance) fonWeightChartInstance.destroy();
+
+    const ctxWeight = document.getElementById('fon-weight-chart');
+    if (ctxWeight) {
+        fonWeightChartInstance = new Chart(ctxWeight, {
+            type: 'bar',
+            data: {
+                labels: weightLabels,
+                datasets: [{
+                    label: 'Ağırlık (%)',
+                    data: weightValues,
+                    backgroundColor: chartColors.slice(0, weightLabels.length),
+                    borderColor: chartColors.slice(0, weightLabels.length),
+                    borderWidth: 0,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.label}: %${context.parsed.y.toFixed(2)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: (value) => `%${value}`
+                        },
+                        grid: { color: gridColor },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 2: PnL Chart
+    if (fonPnlChartInstance) fonPnlChartInstance.destroy();
+
+    const ctxPnl = document.getElementById('fon-pnl-chart');
+    if (ctxPnl) {
+        const pnlData = [...fundRows].sort((a, b) => b.pnl - a.pnl);
+        const pnlLabels = pnlData.map(f => f.code);
+        const pnlValues = pnlData.map(f => f.pnl);
+        const pnlColors = pnlValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
+
+        // ===== KAP NOTIFICATIONS MANAGEMENT =====
+
+        // KAP State
+        let kapNotifications = [];
+        let kapFilteredNotifications = [];
+
+        // KAP DOM elements
+        const kapFetchBtn = document.getElementById('kap-fetch-btn');
+        const kapRefreshBtn = document.getElementById('kap-refresh-btn');
+        const kapTableBody = document.getElementById('kap-body');
+        const kapFromDate = document.getElementById('kap-from-date');
+        const kapToDate = document.getElementById('kap-to-date');
+        const kapFilterBtn = document.getElementById('kap-filter-btn');
+        const kapClearFilterBtn = document.getElementById('kap-clear-filter-btn');
+
+        // Initialize KAP dates (last 7 days default)
+        function initKapDates() {
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+
+            if (kapFromDate) kapFromDate.value = weekAgo.toISOString().split('T')[0];
+            if (kapToDate) kapToDate.value = today.toISOString().split('T')[0];
+        }
+
+        // Load KAP notifications from database
+        async function loadKapNotifications() {
+            try {
+                const res = await fetch('/api/kap-notifications');
+                if (res.ok) {
+                    kapNotifications = await res.json();
+                    kapFilteredNotifications = [...kapNotifications];
+                    renderKapTable();
+                }
+            } catch (err) {
+                console.error('KAP verisi yüklenemedi:', err);
+            }
+        }
+
+        // Fetch KAP data from API and save to database
+        async function fetchKapData() {
+            if (!kapFetchBtn) return;
+
+            // Clear table first to show loading state
+            if (kapTableBody) {
+                kapTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">Veriler çekiliyor, lütfen bekleyin...</td></tr>';
+            }
+
+            const fromDate = kapFromDate?.value || '';
+            const toDate = kapToDate?.value || '';
+
+            // Convert dates to Turkish format (dd.mm.yyyy)
+            const formatDateTR = (dateStr) => {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${day}.${month}.${year}`;
+            };
+
+            const payload = {
+                disclosureTypes: null,
+                fromDate: formatDateTR(fromDate) || formatDateTR(new Date().toISOString().split('T')[0]),
+                fundTypes: ['YF'], // Yatırım Fonları
+                memberTypes: null,
+                mkkMemberOid: null,
+                toDate: formatDateTR(toDate) || formatDateTR(new Date().toISOString().split('T')[0])
+            };
+
+            kapFetchBtn.disabled = true;
+            kapFetchBtn.innerHTML = '<span>Çekiliyor...</span>';
+
+            try {
+                const response = await fetch('https://www.kap.org.tr/tr/api/disclosure/list/main', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('KAP API Response:', data);
+
+                if (!data || data.length === 0) {
+                    alert('Belirtilen tarih aralığında KAP bildirimi bulunamadı.');
+                    return;
+                }
+
+                // Process and save to database
+                const notifications = [];
+                data.forEach(item => {
+                    const basic = item.disclosureBasic;
+                    if (basic) {
+                        notifications.push({
+                            stockCode: basic.stockCode || '',
+                            publishDate: basic.publishDate || '',
+                            title: basic.title || '',
+                            companyTitle: basic.companyTitle || '',
+                            summary: basic.summary || '',
+                            category: basic.disclosureCategory || '',
+                            disclosureIndex: basic.disclosureIndex || '',
+                            url: basic.disclosureIndex ? `https://www.kap.org.tr/tr/Bildirim/${basic.disclosureIndex}` : ''
+                        });
+                    }
+                });
+
+                // Save to database
+                const saveRes = await fetch('/api/kap-notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notifications })
+                });
+
+                if (saveRes.ok) {
+                    const result = await saveRes.json();
+                    console.log(`KAP verileri kaydedildi: ${result.count} bildirim`);
+                    kapNotifications = notifications;
+                    kapFilteredNotifications = [...notifications];
+                    renderKapTable();
+                }
+
+            } catch (err) {
+                console.error('KAP verisi çekme hatası:', err);
+                alert('KAP verisi çekilirken hata oluştu: ' + err.message);
+            } finally {
+                kapFetchBtn.disabled = false;
+                kapFetchBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg><span>Çek</span>';
+            }
+        }
+
+        // Render KAP table
+        function renderKapTable() {
+            if (!kapTableBody) return;
+
+            if (kapFilteredNotifications.length === 0) {
+                kapTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">KAP bildirimlerini çekmek için "Çek" butonuna tıklayın.</td></tr>';
+                return;
+            }
+
+            kapTableBody.innerHTML = kapFilteredNotifications.map((item, index) => `
+        <tr>
+            <td style="font-weight: 600; color: var(--primary-color);">${item.stockCode || '-'}</td>
+            <td>${item.publishDate || '-'}</td>
+            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(item.title || '').replace(/"/g, '&quot;')}">${item.title || '-'}</td>
+            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(item.companyTitle || '').replace(/"/g, '&quot;')}">${item.companyTitle || '-'}</td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(item.summary || '').replace(/"/g, '&quot;')}">${item.summary || '-'}</td>
+            <td>${item.category || '-'}</td>
+            <td>
+                <a href="${item.url || '#'}" target="_blank" class="icon-btn" title="KAP'ta Görüntüle" style="color: var(--primary-color);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                </a>
+            </td>
+        </tr>
+    `).join('');
+        }
+
+        // Filter KAP notifications by date
+        function filterKapNotifications() {
+            const fromVal = kapFromDate?.value;
+            const toVal = kapToDate?.value;
+
+            if (!fromVal && !toVal) {
+                kapFilteredNotifications = [...kapNotifications];
+            } else {
+                kapFilteredNotifications = kapNotifications.filter(item => {
+                    if (!item.publishDate) return false;
+
+                    // Convert Turkish date format to Date object
+                    const parseDate = (dateStr) => {
+                        const parts = dateStr.split('.');
+                        if (parts.length !== 3) return null;
+                        return new Date(parts[2], parts[1] - 1, parts[0]);
+                    };
+
+                    const itemDate = parseDate(item.publishDate);
+                    if (!itemDate) return false;
+
+                    const from = fromVal ? new Date(fromVal) : null;
+                    const to = toVal ? new Date(toVal) : null;
+
+                    // Set to end of day for "to" date
+                    if (to) {
+                        to.setHours(23, 59, 59, 999);
+                    }
+
+                    if (from && to) {
+                        return itemDate >= from && itemDate <= to;
+                    } else if (from) {
+                        return itemDate >= from;
+                    } else if (to) {
+                        return itemDate <= to;
+                    }
+                    return true;
+                });
+            }
+
+            renderKapTable();
+        }
+
+        // Clear KAP filters
+        function clearKapFilters() {
+            initKapDates();
+            kapFilteredNotifications = [...kapNotifications];
+            renderKapTable();
+        }
+
+        // KAP Event Listeners
+        if (kapFetchBtn) {
+            kapFetchBtn.addEventListener('click', fetchKapData);
+        }
+
+        if (kapRefreshBtn) {
+            kapRefreshBtn.addEventListener('click', loadKapNotifications);
+        }
+
+        if (kapFilterBtn) {
+            kapFilterBtn.addEventListener('click', filterKapNotifications);
+        }
+
+        if (kapClearFilterBtn) {
+            kapClearFilterBtn.addEventListener('click', clearKapFilters);
+        }
+
+        // Initialize on load
+        initKapDates();
+        loadKapNotifications();
+
+        fonPnlChartInstance = new Chart(ctxPnl, {
+            type: 'bar',
+            data: {
+                labels: pnlLabels,
+                datasets: [{
+                    label: 'Kar/Zarar (₺)',
+                    data: pnlValues,
+                    backgroundColor: pnlColors,
+                    borderColor: pnlColors,
+                    borderWidth: 0,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.parsed.y >= 0 ? '+' : ''}₺${fmtNum(context.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            callback: (value) => `₺${fmtNum(value)}`
+                        },
+                        grid: { color: gridColor },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
 }
