@@ -63,24 +63,67 @@ try {
     // Column might already exist or table is new, ignore error
 }
 
-// TEFAS fund data table (stores cached fund information)
+// TEFAS and BES history tables
 db.exec(`
-    CREATE TABLE IF NOT EXISTS tefas_data (
-        id        INTEGER PRIMARY KEY,
-        type      TEXT NOT NULL, -- 'YAT' or 'EMK'
-        data      TEXT,
+    CREATE TABLE IF NOT EXISTS yat_history (
+        code TEXT PRIMARY KEY,
+        name TEXT,
+        daily_return REAL,
+        weekly_return REAL,
+        return1m REAL,
+        return3m REAL,
+        return6m REAL,
+        returnYtd REAL,
+        return1y REAL,
+        return3y REAL,
+        return5y REAL,
+        category TEXT,
+        subcategory TEXT,
+        company TEXT,
+        is_active TEXT,
+        price REAL,
+        price_prev REAL,
+        price_7d REAL,
+        is_stale INTEGER DEFAULT 0
+    )
+`);
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS bes_history (
+        code TEXT PRIMARY KEY,
+        name TEXT,
+        daily_return REAL,
+        weekly_return REAL,
+        return1m REAL,
+        return3m REAL,
+        return6m REAL,
+        returnYtd REAL,
+        return1y REAL,
+        return3y REAL,
+        return5y REAL,
+        category TEXT,
+        subcategory TEXT,
+        company TEXT,
+        is_active TEXT,
+        price REAL,
+        price_prev REAL,
+        price_7d REAL,
+        is_stale INTEGER DEFAULT 0
+    )
+`);
+
+// Metadata table for timestamps
+db.exec(`
+    CREATE TABLE IF NOT EXISTS tefas_metadata (
+        type TEXT PRIMARY KEY,
         updatedAt TEXT
     )
 `);
 
-// Migration: Add type column if it doesn't exist (for existing databases)
-try {
-    db.exec("ALTER TABLE tefas_data ADD COLUMN type TEXT DEFAULT 'YAT'");
-} catch (e) {
-    // Column might already exist or table is new, ignore error
-}
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Increase limit for large fund data
 
-// KAP (Kamuyu Aydınlatma Platformu) data table
+// API: Portfolio - Get (by fundType: YAT or EMK)
 db.exec(`
     CREATE TABLE IF NOT EXISTS kap_data (
         id        INTEGER PRIMARY KEY,
@@ -127,9 +170,6 @@ if (rowCount.cnt === 0 && fs.existsSync(LEGACY_JSON)) {
         console.error('Migration from portfolio.json failed:', err.message);
     }
 }
-
-app.use(cors());
-app.use(express.json());
 
 // API: Portfolio - Get (by fundType: YAT or EMK)
 app.get('/api/local-portfolio', (req, res) => {
@@ -224,12 +264,20 @@ app.post('/api/bes-portfolio', (req, res) => {
 app.get('/api/tefas-data', (req, res) => {
     try {
         const type = req.query.type || 'YAT';
-        const row = db.prepare('SELECT data, updatedAt FROM tefas_data WHERE type = ? ORDER BY id DESC LIMIT 1').get(type);
-        if (row) {
-            res.json({ data: JSON.parse(row.data), updatedAt: row.updatedAt });
-        } else {
-            res.json({ data: null, updatedAt: null });
-        }
+        const tableName = type === 'EMK' ? 'bes_history' : 'yat_history';
+        
+        const rows = db.prepare(`SELECT * FROM ${tableName}`).all();
+        const meta = db.prepare('SELECT updatedAt FROM tefas_metadata WHERE type = ?').get(type);
+        
+        const data = rows.map(r => [
+            r.code, r.name, r.daily_return, r.weekly_return, 
+            r.return1m, r.return3m, r.return6m, r.returnYtd, 
+            r.return1y, r.return3y, r.return5y, r.category, 
+            r.subcategory, r.company, r.is_active, r.price, 
+            r.price_prev, r.price_7d, r.is_stale === 1
+        ]);
+        
+        res.json({ data: data.length > 0 ? data : null, updatedAt: meta ? meta.updatedAt : null });
     } catch (err) {
         res.status(500).json({ error: 'Veri okunamadı' });
     }
@@ -243,9 +291,39 @@ app.post('/api/tefas-data', (req, res) => {
             return res.status(400).json({ error: 'Geçersiz veri formatı' });
         }
         const fundType = type || 'YAT';
+        const tableName = fundType === 'EMK' ? 'bes_history' : 'yat_history';
         const now = new Date().toISOString();
-        db.prepare('DELETE FROM tefas_data WHERE type = ?').run(fundType);
-        db.prepare('INSERT INTO tefas_data (type, data, updatedAt) VALUES (?, ?, ?)').run(fundType, JSON.stringify(data), now);
+        
+        const replace = db.transaction((rows) => {
+            db.prepare(`DELETE FROM ${tableName}`).run();
+            const insert = db.prepare(`
+                INSERT INTO ${tableName} (
+                    code, name, daily_return, weekly_return, 
+                    return1m, return3m, return6m, returnYtd, 
+                    return1y, return3y, return5y, category, 
+                    subcategory, company, is_active, price, 
+                    price_prev, price_7d, is_stale
+                ) VALUES (
+                    @c0, @c1, @c2, @c3, 
+                    @c4, @c5, @c6, @c7, 
+                    @c8, @c9, @c10, @c11, 
+                    @c12, @c13, @c14, @c15, 
+                    @c16, @c17, @c18
+                )
+            `);
+            for (const row of rows) {
+                insert.run({
+                    c0: row[0] ?? null, c1: row[1] ?? null, c2: row[2] ?? null, c3: row[3] ?? null,
+                    c4: row[4] ?? null, c5: row[5] ?? null, c6: row[6] ?? null, c7: row[7] ?? null,
+                    c8: row[8] ?? null, c9: row[9] ?? null, c10: row[10] ?? null, c11: row[11] ?? null,
+                    c12: row[12] ?? null, c13: row[13] ?? null, c14: row[14] ?? null, c15: row[15] ?? null,
+                    c16: row[16] ?? null, c17: row[17] ?? null, c18: row[18] ? 1 : 0
+                });
+            }
+            db.prepare('INSERT OR REPLACE INTO tefas_metadata (type, updatedAt) VALUES (?, ?)').run(fundType, now);
+        });
+        
+        replace(data);
         res.json({ success: true, updatedAt: now });
     } catch (err) {
         res.status(500).json({ error: 'Veri kaydedilemedi' });
@@ -256,7 +334,9 @@ app.post('/api/tefas-data', (req, res) => {
 app.delete('/api/tefas-data', (req, res) => {
     try {
         const type = req.query.type || 'YAT';
-        db.prepare('DELETE FROM tefas_data WHERE type = ?').run(type);
+        const tableName = type === 'EMK' ? 'bes_history' : 'yat_history';
+        db.prepare(`DELETE FROM ${tableName}`).run();
+        db.prepare('DELETE FROM tefas_metadata WHERE type = ?').run(type);
         res.json({ success: true, message: `${type} verileri temizlendi` });
     } catch (err) {
         res.status(500).json({ error: 'Veri temizlenemedi' });

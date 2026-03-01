@@ -661,6 +661,14 @@ window.addEventListener('DOMContentLoaded', () => {
             await fetch('/api/tefas-data?type=YAT', { method: 'DELETE' });
             localStorage.removeItem('tefasData');
             localStorage.removeItem('tefasLastUpdate');
+            
+            // Clear local state and refresh UI
+            yatView.fullData = [];
+            yatView.applyFilters();
+            if (yatView.lastUpdateText) yatView.lastUpdateText.textContent = "";
+            window.fullData = [];
+            document.dispatchEvent(new CustomEvent('tefas-data-updated'));
+            
             showStatus('YAT verileri temizlendi. Lütfen verileri güncelleyin.');
         } catch (err) {
             showStatus('Veri temizlenirken hata: ' + err.message, true);
@@ -673,6 +681,13 @@ window.addEventListener('DOMContentLoaded', () => {
             await fetch('/api/tefas-data?type=EMK', { method: 'DELETE' });
             localStorage.removeItem('tefasData-bes');
             localStorage.removeItem('tefasLastUpdate-bes');
+            
+            // Clear local state and refresh UI
+            besView.fullData = [];
+            besView.applyFilters();
+            if (besView.lastUpdateText) besView.lastUpdateText.textContent = "";
+            window.besData = [];
+            
             showStatus('BES verileri temizlendi. Lütfen verileri güncelleyin.');
         } catch (err) {
             showStatus('Veri temizlenirken hata: ' + err.message, true);
