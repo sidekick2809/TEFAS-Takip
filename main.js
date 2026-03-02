@@ -25,6 +25,7 @@ class TefasDataView {
         this.turSelect = document.getElementById(config.turSelectId);
         this.turcSelect = document.getElementById(config.turcSelectId);
         this.sirketSelect = document.getElementById(config.sirketSelectId);
+        this.searchInput = document.getElementById(config.searchInputId);
 
         // State
         this.fullData = [];
@@ -34,6 +35,7 @@ class TefasDataView {
         this.selectedTurs = new Set();
         this.selectedTurcs = new Set();
         this.selectedSirkets = new Set();
+        this.searchTerm = '';
 
         this.init();
     }
@@ -81,6 +83,12 @@ class TefasDataView {
         // Export Listeners
         document.getElementById(`export-data-csv${this.prefix ? '-' + this.prefix : ''}`)?.addEventListener('click', () => this.exportData('csv'));
         document.getElementById(`export-data-xls${this.prefix ? '-' + this.prefix : ''}`)?.addEventListener('click', () => this.exportData('xls'));
+
+        // Search input
+        this.searchInput?.addEventListener('input', (e) => {
+            this.searchTerm = e.target.value.toLowerCase();
+            this.applyFilters();
+        });
 
         // Local Storage Load
         this.loadFromStorage();
@@ -506,6 +514,15 @@ class TefasDataView {
     applyFilters() {
         const statusVal = this.tefasStatusFilter?.value || 'ALL';
         this.currentData = this.fullData.filter(row => {
+            // Filter by search term
+            if (this.searchTerm) {
+                const kod = (row[0] || '').toLowerCase();
+                const ad = (row[1] || '').toLowerCase();
+                if (!kod.includes(this.searchTerm) && !ad.includes(this.searchTerm)) {
+                    return false;
+                }
+            }
+
             const matchesTur = this.selectedTurs.has(row[11] || "");
             const matchesTurc = this.selectedTurcs.has(row[12] || "");
             const matchesSirket = this.selectedSirkets.has(row[13] || "");
@@ -521,6 +538,8 @@ class TefasDataView {
         this.selectedTurs.clear();
         this.selectedTurcs.clear();
         this.selectedSirkets.clear();
+        this.searchTerm = '';
+        if (this.searchInput) this.searchInput.value = '';
         this.initFilters();
         if (this.tefasStatusFilter) this.tefasStatusFilter.value = 'EVET';
         this.applyFilters();
@@ -560,6 +579,7 @@ class FVTDataView {
         this.btnResetFilters = document.getElementById(config.resetFilterBtnId);
         this.kategoriSelect = document.getElementById(config.kategoriSelectId);
         this.sirketSelect = document.getElementById(config.sirketSelectId);
+        this.searchInput = document.getElementById(config.searchInputId);
 
         // State
         this.fullData = [];
@@ -568,6 +588,7 @@ class FVTDataView {
         this.currentSortAsc = true;
         this.selectedKategoris = new Set();
         this.selectedSirkets = new Set();
+        this.searchTerm = '';
 
         this.init();
     }
@@ -602,6 +623,12 @@ class FVTDataView {
                 this.resetFilters();
                 hideLoading();
             }, 10);
+        });
+
+        // Search input
+        this.searchInput?.addEventListener('input', (e) => {
+            this.searchTerm = e.target.value.toLowerCase();
+            this.applyFilters();
         });
 
         // Local Storage Load
@@ -889,6 +916,15 @@ class FVTDataView {
 
     applyFilters() {
         this.currentData = this.fullData.filter(row => {
+            // Filter by search term
+            if (this.searchTerm) {
+                const kod = (row.fon_kodu || '').toLowerCase();
+                const ad = (row.fon_adi || '').toLowerCase();
+                if (!kod.includes(this.searchTerm) && !ad.includes(this.searchTerm)) {
+                    return false;
+                }
+            }
+
             // Filter by kategori
             const rowKategori = row.kategoriAdi || '';
             if (this.selectedKategoris.size > 0 && !this.selectedKategoris.has(rowKategori)) {
@@ -910,6 +946,8 @@ class FVTDataView {
     resetFilters() {
         this.selectedKategoris.clear();
         this.selectedSirkets.clear();
+        this.searchTerm = '';
+        if (this.searchInput) this.searchInput.value = '';
         this.initFilters();
         this.applyFilters();
     }
@@ -1018,7 +1056,8 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleColsBtnId: 'toggle-cols-btn', dataTableContainerId: 'data-table-container',
         tableId: 'data-table', applyFilterBtnId: 'apply-filter-btn', resetFilterBtnId: 'reset-filter-btn',
         tefasStatusFilterId: 'tefas-status-filter', turSelectId: 'tur-select',
-        turcSelectId: 'turc-select', sirketSelectId: 'sirket-select'
+        turcSelectId: 'turc-select', sirketSelectId: 'sirket-select',
+        searchInputId: 'search-input'
     });
 
     besView = new TefasDataView({
@@ -1028,7 +1067,8 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleColsBtnId: 'toggle-cols-btn-bes', dataTableContainerId: 'data-table-container-bes',
         tableId: 'data-table-bes', applyFilterBtnId: 'apply-filter-btn-bes', resetFilterBtnId: 'reset-filter-btn-bes',
         tefasStatusFilterId: 'tefas-status-filter-bes', turSelectId: 'tur-select-bes',
-        turcSelectId: 'turc-select-bes', sirketSelectId: 'sirket-select-bes'
+        turcSelectId: 'turc-select-bes', sirketSelectId: 'sirket-select-bes',
+        searchInputId: 'search-input-bes'
     });
 
     fvtView = new FVTDataView({
@@ -1036,7 +1076,8 @@ window.addEventListener('DOMContentLoaded', () => {
         btnId: 'fetch-fvt-btn', tbodyId: 'fvt-table-body', lastUpdateId: 'last-update-fvt',
         tableId: 'fvt-table', tableContainerId: 'fvt-table-container',
         applyFilterBtnId: 'apply-fvt-filter-btn', resetFilterBtnId: 'reset-fvt-filter-btn',
-        kategoriSelectId: 'fvt-kategori-select', sirketSelectId: 'fvt-sirket-select'
+        kategoriSelectId: 'fvt-kategori-select', sirketSelectId: 'fvt-sirket-select',
+        searchInputId: 'fvt-search-input'
     });
 
     // Clear database buttons
