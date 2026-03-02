@@ -538,6 +538,383 @@ class TefasDataView {
     }
 }
 
+/**
+ * FVTDataView class manages the data, filters, and rendering for FVT Data.
+ */
+class FVTDataView {
+    constructor(config) {
+        this.storageKey = config.storageKey || 'fvtData';
+        this.lastUpdateKey = config.lastUpdateKey || 'fvtLastUpdate';
+
+        // Core Elements
+        this.btn = document.getElementById(config.btnId);
+        this.btnIcon = this.btn?.querySelector('.btn-icon');
+        this.spinner = this.btn?.querySelector('.loader-spinner');
+        this.tbody = document.getElementById(config.tbodyId);
+        this.lastUpdateText = document.getElementById(config.lastUpdateId);
+        this.table = document.getElementById(config.tableId);
+        this.tableContainer = document.getElementById(config.tableContainerId);
+
+        // Filter Elements
+        this.btnApplyFilters = document.getElementById(config.applyFilterBtnId);
+        this.btnResetFilters = document.getElementById(config.resetFilterBtnId);
+        this.kategoriSelect = document.getElementById(config.kategoriSelectId);
+        this.sirketSelect = document.getElementById(config.sirketSelectId);
+
+        // State
+        this.fullData = [];
+        this.currentData = [];
+        this.currentSortCol = -1;
+        this.currentSortAsc = true;
+        this.selectedKategoris = new Set();
+        this.selectedSirkets = new Set();
+
+        this.init();
+    }
+
+    init() {
+        // Fetch button
+        this.btn?.addEventListener('click', () => this.fetchData());
+
+        // Sortable headers
+        this.table?.querySelectorAll('thead th').forEach(th => {
+            th.addEventListener('click', () => this.handleSort(th));
+        });
+
+        // Filter Dropdowns
+        if (this.kategoriSelect) this.setupDropdownEvents(this.kategoriSelect);
+        if (this.sirketSelect) this.setupDropdownEvents(this.sirketSelect);
+
+        // Filter Apply/Reset
+        this.btnApplyFilters?.addEventListener('click', () => {
+            this.closeAllDropdowns();
+            showLoading();
+            setTimeout(() => {
+                this.applyFilters();
+                hideLoading();
+            }, 10);
+        });
+
+        this.btnResetFilters?.addEventListener('click', () => {
+            this.closeAllDropdowns();
+            showLoading();
+            setTimeout(() => {
+                this.resetFilters();
+                hideLoading();
+            }, 10);
+        });
+
+        // Local Storage Load
+        this.loadFromStorage();
+    }
+
+    setupDropdownEvents(selectEl) {
+        const trigger = selectEl.querySelector('.multi-select-trigger');
+        trigger.addEventListener('click', () => {
+            selectEl.classList.toggle('open');
+        });
+    }
+
+    closeAllDropdowns() {
+        this.kategoriSelect?.classList.remove('open');
+        this.sirketSelect?.classList.remove('open');
+    }
+
+    async loadFromStorage() {
+        // Try to load from server first
+        try {
+            const response = await fetch('/api/fvt-data');
+            if (response.ok) {
+                const result = await response.json();
+                if (result.data && result.data.length > 0) {
+                    this.fullData = result.data;
+                    this.initFilters();
+                    this.applyFilters();
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('Sunucudan FVT verisi alınamadı, yerel storage kullanılıyor:', error.message);
+        }
+
+        // Fallback to localStorage
+        const savedData = localStorage.getItem(this.storageKey);
+        if (savedData) {
+            try {
+                this.fullData = JSON.parse(savedData);
+                if (this.fullData && this.fullData.length > 0) {
+                    this.initFilters();
+                    this.applyFilters();
+                }
+            } catch (error) {
+                console.error('Yerel FVT veritabanı okunurken hata:', error);
+            }
+        }
+    }
+
+    async fetchData() {
+        hideStatus();
+        if (this.btn) this.btn.disabled = true;
+        if (this.btnIcon) this.btnIcon.style.display = 'none';
+        if (this.spinner) this.spinner.style.display = 'block';
+
+        try {
+            const response = await fetch('/api/fvt-fetch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Veri alınamadı');
+            }
+
+            if (result.data && result.data.length > 0) {
+                this.fullData = result.data;
+
+                // Save to localStorage
+                localStorage.setItem(this.storageKey, JSON.stringify(this.fullData));
+
+                this.initFilters();
+                this.applyFilters();
+
+                // Clear sort UI
+                this.table.querySelectorAll('th').forEach(el => el.classList.remove('sort-asc', 'sort-desc'));
+
+                // Update timestamp
+                const now = new Date();
+                const formattedDate =
+                    String(now.getDate()).padStart(2, '0') + '.' +
+                    String(now.getMonth() + 1).padStart(2, '0') + '.' +
+                    String(now.getFullYear()).slice(-2) + ' ' +
+                    String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0');
+                const updateStr = "Son Güncelleme: " + formattedDate;
+
+                if (this.lastUpdateText) this.lastUpdateText.textContent = updateStr;
+                localStorage.setItem(this.lastUpdateKey, updateStr);
+
+                showStatus(`FVT verileri güncellendi. (${this.fullData.length} fon)`);
+            } else {
+                showStatus('FVT API\'den veri alınamadı.');
+            }
+
+        } catch (error) {
+            console.error(error);
+            showStatus('Veri alınırken hata: ' + error.message, true);
+        } finally {
+            if (this.btn) this.btn.disabled = false;
+            if (this.btnIcon) this.btnIcon.style.display = 'block';
+            if (this.spinner) this.spinner.style.display = 'none';
+        }
+    }
+
+    renderTable(data) {
+        if (!this.tbody) return;
+        this.tbody.innerHTML = '';
+
+        if (data.length === 0) {
+            this.tbody.innerHTML = '<tr><td colspan="13" class="empty-state">Veri bulunamadı.</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+
+            // Map row data to columns (without separate FON ADI column):
+            // 0: fon_kodu, 1: kategoriAdi, 2: haftalik_getiri, 3: aylik_getiri
+            // 4: uc_aylik_getiri, 5: alti_aylik_getiri, 6: ytd_getiri, 7: bir_yillik_getiri
+            // 8: uc_yillik_getiri, 9: bes_yillik_getiri, 10: stopaj, 11: yonetim_ucret, 12: fonlink
+
+            const linkUrl = row.fonlink ? `https://fvt.com.tr/yatirim-fonlari/${row.fonlink}/` : '#';
+
+            tr.innerHTML = `
+                <td class="has-tooltip" data-tooltip="${row.fon_adi || ''}">
+                    <strong>${row.fon_kodu || ''}</strong>
+                    <div class="wrap-text unvan-text fund-name-sub">${row.fon_adi || ''}</div>
+                </td>
+                <td>${row.kategoriAdi || ''}</td>
+                <td>${this.formatPercent(row.haftalik_getiri)}</td>
+                <td>${this.formatPercent(row.aylik_getiri)}</td>
+                <td>${this.formatPercent(row.uc_aylik_getiri)}</td>
+                <td>${this.formatPercent(row.alti_aylik_getiri)}</td>
+                <td>${this.formatPercent(row.ytd_getiri)}</td>
+                <td>${this.formatPercent(row.bir_yillik_getiri)}</td>
+                <td>${this.formatPercent(row.uc_yillik_getiri)}</td>
+                <td>${this.formatPercent(row.bes_yillik_getiri)}</td>
+                <td>${this.formatPercent(row.stopaj)}</td>
+                <td>${this.formatPercent(row.yonetim_ucret)}</td>
+                <td>${row.fonlink ? '<a href="' + linkUrl + '" target="_blank" class="fund-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>' : '-'}</td>
+            `;
+            this.tbody.appendChild(tr);
+        });
+    }
+
+    formatPercent(val) {
+        if (val === null || val === undefined) return '-';
+        const num = parseFloat(val);
+        const str = num.toFixed(2) + '%';
+        const cssClass = num > 0.005 ? 'val-up' : num < -0.005 ? 'val-down' : 'val-zero';
+        return `<span class="${cssClass}">${num > 0 ? '+' : ''}${str}</span>`;
+    }
+
+    handleSort(th) {
+        if (this.currentData.length === 0) return;
+        const sortKey = th.dataset.sort;
+        if (!sortKey) return;
+
+        const colIndex = parseInt(th.dataset.index);
+        if (this.currentSortCol === colIndex) {
+            this.currentSortAsc = !this.currentSortAsc;
+        } else {
+            this.currentSortCol = colIndex;
+            this.currentSortAsc = false;
+            if (['kod', 'kategori'].includes(sortKey)) {
+                this.currentSortAsc = true;
+            }
+        }
+
+        this.table.querySelectorAll('thead th').forEach(el => el.classList.remove('sort-asc', 'sort-desc'));
+        th.classList.add(this.currentSortAsc ? 'sort-asc' : 'sort-desc');
+
+        showLoading();
+        setTimeout(() => {
+            this.currentData.sort((a, b) => {
+                // Get values based on column index (without FON ADI column)
+                let valA, valB;
+                switch (colIndex) {
+                    case 0: valA = a.fon_kodu; valB = b.fon_kodu; break;
+                    case 1: valA = a.kategoriAdi; valB = b.kategoriAdi; break;
+                    case 2: valA = a.haftalik_getiri; valB = b.haftalik_getiri; break;
+                    case 3: valA = a.aylik_getiri; valB = b.aylik_getiri; break;
+                    case 4: valA = a.uc_aylik_getiri; valB = b.uc_aylik_getiri; break;
+                    case 5: valA = a.alti_aylik_getiri; valB = b.alti_aylik_getiri; break;
+                    case 6: valA = a.ytd_getiri; valB = b.ytd_getiri; break;
+                    case 7: valA = a.bir_yillik_getiri; valB = b.bir_yillik_getiri; break;
+                    case 8: valA = a.uc_yillik_getiri; valB = b.uc_yillik_getiri; break;
+                    case 9: valA = a.bes_yillik_getiri; valB = b.bes_yillik_getiri; break;
+                    case 10: valA = a.stopaj; valB = b.stopaj; break;
+                    case 11: valA = a.yonetim_ucret; valB = b.yonetim_ucret; break;
+                    case 12: valA = a.fonlink; valB = b.fonlink; break;
+                    default: valA = ''; valB = '';
+                }
+
+                if (valA === valB) return 0;
+                if (valA === null || valA === undefined) return 1;
+                if (valB === null || valB === undefined) return -1;
+                if (typeof valA === 'string' && typeof valB === 'string') {
+                    return this.currentSortAsc ? valA.localeCompare(valB, 'tr') : valB.localeCompare(valA, 'tr');
+                }
+                return this.currentSortAsc ? (valA > valB ? 1 : -1) : (valA > valB ? -1 : 1);
+            });
+            this.renderTable(this.currentData);
+            hideLoading();
+        }, 10);
+    }
+
+    initFilters() {
+        this.initFilterDropdown('kategori', 'fvt-kategori-options', 'fvt-kategori-select', this.selectedKategoris);
+        this.initFilterDropdown('sirket', 'fvt-sirket-options', 'fvt-sirket-select', this.selectedSirkets);
+    }
+
+    initFilterDropdown(field, optionsContainerId, selectContainerId, selectedSet) {
+        const values = new Set();
+        this.fullData.forEach(row => {
+            let val;
+            if (field === 'kategori') val = row.kategoriAdi;
+            else if (field === 'sirket') {
+                // Extract company from fon_adi (first word before space or specific pattern)
+                val = row.fon_adi ? row.fon_adi.split(' ')[0] : '';
+            }
+            if (val !== undefined && val !== null) values.add(val);
+        });
+        const sortedValues = Array.from(values).sort();
+        const container = document.getElementById(optionsContainerId);
+        if (!container) return;
+
+        container.innerHTML = '';
+        selectedSet.clear();
+        sortedValues.forEach(v => selectedSet.add(v));
+
+        const toggleAllDiv = document.createElement('div');
+        toggleAllDiv.className = 'option-item toggle-all-item';
+        toggleAllDiv.style.fontWeight = 'bold';
+        toggleAllDiv.style.borderBottom = '1px solid var(--border-color)';
+        toggleAllDiv.style.marginBottom = '0.2rem';
+        toggleAllDiv.innerHTML = `<span>Tümünü Seç / Kaldır</span>`;
+        toggleAllDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const allSelected = selectedSet.size === sortedValues.length;
+            if (allSelected) {
+                selectedSet.clear();
+                container.querySelectorAll('input').forEach(cb => cb.checked = false);
+            } else {
+                sortedValues.forEach(v => selectedSet.add(v));
+                container.querySelectorAll('input').forEach(cb => cb.checked = true);
+            }
+            this.updateFilterText(selectedSet, sortedValues.length, document.getElementById(selectContainerId));
+        });
+        container.appendChild(toggleAllDiv);
+
+        sortedValues.forEach(val => {
+            const displayVal = val === "" ? "Belirsiz" : val;
+            const div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerHTML = `<input type="checkbox" value="${val}" checked><span>${displayVal}</span>`;
+            div.addEventListener('click', (e) => {
+                const checkbox = div.querySelector('input');
+                checkbox.checked = !checkbox.checked;
+                if (checkbox.checked) selectedSet.add(val);
+                else selectedSet.delete(val);
+                this.updateFilterText(selectedSet, sortedValues.length, document.getElementById(selectContainerId));
+            });
+            container.appendChild(div);
+        });
+        this.updateFilterText(selectedSet, sortedValues.length, document.getElementById(selectContainerId));
+    }
+
+    updateFilterText(selectedSet, totalCount, containerEl) {
+        if (!containerEl) return;
+        const textElement = containerEl.querySelector('.multi-select-text');
+        if (!textElement) return;
+        if (selectedSet.size === totalCount) {
+            textElement.textContent = 'Tümü Seçili';
+        } else if (selectedSet.size === 0) {
+            textElement.textContent = 'Hiçbiri Seçili';
+        } else {
+            textElement.textContent = `${selectedSet.size} Seçili`;
+        }
+    }
+
+    applyFilters() {
+        this.currentData = this.fullData.filter(row => {
+            // Filter by kategori
+            const rowKategori = row.kategoriAdi || '';
+            if (this.selectedKategoris.size > 0 && !this.selectedKategoris.has(rowKategori)) {
+                return false;
+            }
+
+            // Filter by sirket (first word of fon_adi)
+            const rowSirket = row.fon_adi ? row.fon_adi.split(' ')[0] : '';
+            if (this.selectedSirkets.size > 0 && !this.selectedSirkets.has(rowSirket)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        this.renderTable(this.currentData);
+    }
+
+    resetFilters() {
+        this.selectedKategoris.clear();
+        this.selectedSirkets.clear();
+        this.initFilters();
+        this.applyFilters();
+    }
+}
+
 // Global UI Elements and Logic (Common)
 const statusMessage = document.getElementById('status-message');
 const globalOverlay = document.getElementById('global-overlay');
@@ -631,7 +1008,7 @@ function getFormattedDates() {
 }
 
 // Initialization
-let yatView, besView;
+let yatView, besView, fvtView;
 
 window.addEventListener('DOMContentLoaded', () => {
     yatView = new TefasDataView({
@@ -654,6 +1031,14 @@ window.addEventListener('DOMContentLoaded', () => {
         turcSelectId: 'turc-select-bes', sirketSelectId: 'sirket-select-bes'
     });
 
+    fvtView = new FVTDataView({
+        storageKey: 'fvtData', lastUpdateKey: 'fvtLastUpdate',
+        btnId: 'fetch-fvt-btn', tbodyId: 'fvt-table-body', lastUpdateId: 'last-update-fvt',
+        tableId: 'fvt-table', tableContainerId: 'fvt-table-container',
+        applyFilterBtnId: 'apply-fvt-filter-btn', resetFilterBtnId: 'reset-fvt-filter-btn',
+        kategoriSelectId: 'fvt-kategori-select', sirketSelectId: 'fvt-sirket-select'
+    });
+
     // Clear database buttons
     document.getElementById('clear-btn')?.addEventListener('click', async () => {
         if (!confirm('YAT fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
@@ -661,14 +1046,14 @@ window.addEventListener('DOMContentLoaded', () => {
             await fetch('/api/tefas-data?type=YAT', { method: 'DELETE' });
             localStorage.removeItem('tefasData');
             localStorage.removeItem('tefasLastUpdate');
-            
+
             // Clear local state and refresh UI
             yatView.fullData = [];
             yatView.applyFilters();
             if (yatView.lastUpdateText) yatView.lastUpdateText.textContent = "";
             window.fullData = [];
             document.dispatchEvent(new CustomEvent('tefas-data-updated'));
-            
+
             showStatus('YAT verileri temizlendi. Lütfen verileri güncelleyin.');
         } catch (err) {
             showStatus('Veri temizlenirken hata: ' + err.message, true);
@@ -681,14 +1066,32 @@ window.addEventListener('DOMContentLoaded', () => {
             await fetch('/api/tefas-data?type=EMK', { method: 'DELETE' });
             localStorage.removeItem('tefasData-bes');
             localStorage.removeItem('tefasLastUpdate-bes');
-            
+
             // Clear local state and refresh UI
             besView.fullData = [];
             besView.applyFilters();
             if (besView.lastUpdateText) besView.lastUpdateText.textContent = "";
             window.besData = [];
-            
+
             showStatus('BES verileri temizlendi. Lütfen verileri güncelleyin.');
+        } catch (err) {
+            showStatus('Veri temizlenirken hata: ' + err.message, true);
+        }
+    });
+
+    document.getElementById('clear-fvt-btn')?.addEventListener('click', async () => {
+        if (!confirm('FVT fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
+        try {
+            await fetch('/api/fvt-clear', { method: 'DELETE' });
+            localStorage.removeItem('fvtData');
+            localStorage.removeItem('fvtLastUpdate');
+
+            // Clear local state and refresh UI
+            fvtView.fullData = [];
+            fvtView.applyFilters();
+            if (fvtView.lastUpdateText) fvtView.lastUpdateText.textContent = "";
+
+            showStatus('FVT verileri temizlendi. Lütfen verileri güncelleyin.');
         } catch (err) {
             showStatus('Veri temizlenirken hata: ' + err.message, true);
         }

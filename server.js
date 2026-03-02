@@ -56,6 +56,28 @@ db.exec(`
     )
 `);
 
+// Create FVT data table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS fvt_data (
+        id              INTEGER PRIMARY KEY,
+        fon_kodu        TEXT,
+        fon_adi         TEXT,
+        kategoriAdi     TEXT,
+        haftalik_getiri REAL,
+        aylik_getiri    REAL,
+        uc_aylik_getiri REAL,
+        alti_aylik_getiri REAL,
+        ytd_getiri      REAL,
+        bir_yillik_getiri REAL,
+        uc_yillik_getiri REAL,
+        bes_yillik_getiri REAL,
+        stopaj          REAL,
+        yonetim_ucret   REAL,
+        fonlink         TEXT,
+        fetchedAt       TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
 // Migration: Add fundType column if it doesn't exist (for existing databases)
 try {
     db.exec("ALTER TABLE portfolio ADD COLUMN fundType TEXT DEFAULT 'YAT'");
@@ -265,18 +287,18 @@ app.get('/api/tefas-data', (req, res) => {
     try {
         const type = req.query.type || 'YAT';
         const tableName = type === 'EMK' ? 'bes_history' : 'yat_history';
-        
+
         const rows = db.prepare(`SELECT * FROM ${tableName}`).all();
         const meta = db.prepare('SELECT updatedAt FROM tefas_metadata WHERE type = ?').get(type);
-        
+
         const data = rows.map(r => [
-            r.code, r.name, r.daily_return, r.weekly_return, 
-            r.return1m, r.return3m, r.return6m, r.returnYtd, 
-            r.return1y, r.return3y, r.return5y, r.category, 
-            r.subcategory, r.company, r.is_active, r.price, 
+            r.code, r.name, r.daily_return, r.weekly_return,
+            r.return1m, r.return3m, r.return6m, r.returnYtd,
+            r.return1y, r.return3y, r.return5y, r.category,
+            r.subcategory, r.company, r.is_active, r.price,
             r.price_prev, r.price_7d, r.is_stale === 1
         ]);
-        
+
         res.json({ data: data.length > 0 ? data : null, updatedAt: meta ? meta.updatedAt : null });
     } catch (err) {
         res.status(500).json({ error: 'Veri okunamadı' });
@@ -293,7 +315,7 @@ app.post('/api/tefas-data', (req, res) => {
         const fundType = type || 'YAT';
         const tableName = fundType === 'EMK' ? 'bes_history' : 'yat_history';
         const now = new Date().toISOString();
-        
+
         const replace = db.transaction((rows) => {
             db.prepare(`DELETE FROM ${tableName}`).run();
             const insert = db.prepare(`
@@ -322,7 +344,7 @@ app.post('/api/tefas-data', (req, res) => {
             }
             db.prepare('INSERT OR REPLACE INTO tefas_metadata (type, updatedAt) VALUES (?, ?)').run(fundType, now);
         });
-        
+
         replace(data);
         res.json({ success: true, updatedAt: now });
     } catch (err) {
@@ -394,6 +416,95 @@ app.delete('/api/kap-data', (req, res) => {
         res.json({ success: true, message: 'KAP verileri temizlendi' });
     } catch (err) {
         res.status(500).json({ error: 'KAP verisi temizlenemedi' });
+    }
+});
+
+// API: FVT Data - Get all
+app.get('/api/fvt-data', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM fvt_data ORDER BY fon_kodu').all();
+        res.json({ data: rows, count: rows.length });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT verisi okunamadı' });
+    }
+});
+
+// API: FVT Data - Fetch from FVT API and save
+app.post('/api/fvt-fetch', async (req, res) => {
+    try {
+        const apiUrl = 'https://fvt.com.tr/api/?islem=yatirimfonlari';
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'origin': 'https://fvt.com.tr',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'filtreler[islem]=1'
+        });
+
+        if (!response.ok) {
+            throw new Error(`FVT API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data || !Array.isArray(data) || data.length === 0) {
+            return res.json({ success: true, data: [], count: 0, message: 'FVT API\'den veri alınamadı.' });
+        }
+
+        const now = new Date().toISOString();
+        const saveTransaction = db.transaction((rows) => {
+            db.prepare('DELETE FROM fvt_data').run();
+            const insert = db.prepare(`
+                INSERT INTO fvt_data (
+                    fon_kodu, fon_adi, kategoriAdi, haftalik_getiri, aylik_getiri,
+                    uc_aylik_getiri, alti_aylik_getiri, ytd_getiri, bir_yillik_getiri,
+                    uc_yillik_getiri, bes_yillik_getiri, stopaj, yonetim_ucret, fonlink, fetchedAt
+                ) VALUES (
+                    @fon_kodu, @fon_adi, @kategoriAdi, @haftalik_getiri, @aylik_getiri,
+                    @uc_aylik_getiri, @alti_aylik_getiri, @ytd_getiri, @bir_yillik_getiri,
+                    @uc_yillik_getiri, @bes_yillik_getiri, @stopaj, @yonetim_ucret, @fonlink, @fetchedAt
+                )
+            `);
+            for (const row of rows) {
+                insert.run({
+                    fon_kodu: row.fon_kodu || null,
+                    fon_adi: row.fon_adi || null,
+                    kategoriAdi: row.kategoriAdi || null,
+                    haftalik_getiri: row.haftalik_getiri != null ? parseFloat(row.haftalik_getiri) : null,
+                    aylik_getiri: row.aylik_getiri != null ? parseFloat(row.aylik_getiri) : null,
+                    uc_aylik_getiri: row.uc_aylik_getiri != null ? parseFloat(row.uc_aylik_getiri) : null,
+                    alti_aylik_getiri: row.alti_aylik_getiri != null ? parseFloat(row.alti_aylik_getiri) : null,
+                    ytd_getiri: row.ytd_getiri != null ? parseFloat(row.ytd_getiri) : null,
+                    bir_yillik_getiri: row.bir_yillik_getiri != null ? parseFloat(row.bir_yillik_getiri) : null,
+                    uc_yillik_getiri: row.uc_yillik_getiri != null ? parseFloat(row.uc_yillik_getiri) : null,
+                    bes_yillik_getiri: row.bes_yillik_getiri != null ? parseFloat(row.bes_yillik_getiri) : null,
+                    stopaj: row.stopaj != null ? parseFloat(row.stopaj) : null,
+                    yonetim_ucret: row.yonetim_ucret != null ? parseFloat(row.yonetim_ucret) : null,
+                    fonlink: row.fonlink || null,
+                    fetchedAt: now
+                });
+            }
+        });
+        saveTransaction(data);
+
+        res.json({ success: true, data: data, count: data.length, updatedAt: now });
+
+    } catch (err) {
+        console.error('FVT fetch error:', err);
+        res.status(500).json({ error: 'FVT verisi çekilemedi: ' + err.message });
+    }
+});
+
+// API: FVT Data - Delete (clear all)
+app.delete('/api/fvt-clear', (req, res) => {
+    try {
+        db.prepare('DELETE FROM fvt_data').run();
+        res.json({ success: true, message: 'FVT verileri temizlendi' });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT verisi temizlenemedi' });
     }
 });
 

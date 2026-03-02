@@ -100,6 +100,13 @@
           </svg>
           <span>KAP Bildirimleri</span>
         </button>
+        <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="FVT Data" data-tab="tab-fvt">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+            <polyline points="17 6 23 6 23 12" />
+          </svg>
+          <span>FVT Data</span>
+        </button>
       </nav>
     </aside>
 
@@ -1395,6 +1402,100 @@
             <tbody id="kap-body">
               <tr>
                 <td colspan="6" class="empty-state">Veri yüklemek için "Verileri Çek" butonuna tıklayın.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: FVT DATA -->
+      <div id="tab-fvt" class="tab-panel">
+        <div class="toolbar fade-in" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+          <!-- Top Row: Title and Controls -->
+          <div
+            style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+              <h3 style="margin: 0; font-size: 1.1rem;">FVT Data</h3>
+              <div id="last-update-fvt" class="last-update-text"></div>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <button id="fetch-fvt-btn" class="icon-btn has-tooltip" data-tooltip="Verileri Güncelle">
+                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <div class="loader-spinner" style="display: none; width: 20px; height: 20px;"></div>
+              </button>
+              <button id="clear-fvt-btn" class="icon-btn has-tooltip" data-tooltip="Veritabanını Temizle">
+                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                  <path d="M10 11v6"></path>
+                  <path d="M14 11v6"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Row: Filters -->
+          <div class="filter-group">
+            <label>Kategori:</label>
+            <div class="multi-select" id="fvt-kategori-select">
+              <div class="multi-select-trigger">
+                <span class="multi-select-text">Tümü Seçili</span>
+                <div class="arrow"></div>
+              </div>
+              <div class="multi-select-dropdown">
+                <div class="multi-select-options" id="fvt-kategori-options"></div>
+              </div>
+            </div>
+
+            <label>Şirket:</label>
+            <div class="multi-select" id="fvt-sirket-select">
+              <div class="multi-select-trigger">
+                <span class="multi-select-text">Tümü Seçili</span>
+                <div class="arrow"></div>
+              </div>
+              <div class="multi-select-dropdown">
+                <div class="multi-select-options" id="fvt-sirket-options"></div>
+              </div>
+            </div>
+
+            <button id="apply-fvt-filter-btn" class="secondary-btn">Uygula</button>
+            <button id="reset-fvt-filter-btn" class="secondary-btn outline">Varsayılan</button>
+          </div>
+        </div>
+
+        <div id="fvt-table-container" class="table-container fade-in">
+          <table id="fvt-table">
+            <thead>
+              <tr>
+                <th data-sort="kod" data-index="0">KOD</th>
+                <th data-sort="kategori" data-index="1">KATEGORİ</th>
+                <th data-sort="1h" data-index="2">1H %</th>
+                <th data-sort="1a" data-index="3">1A %</th>
+                <th data-sort="3a" data-index="4">3A %</th>
+                <th data-sort="6a" data-index="5">6A %</th>
+                <th data-sort="ybb" data-index="6">YBB %</th>
+                <th data-sort="1y" data-index="7">1Y %</th>
+                <th data-sort="3y" data-index="8">3Y %</th>
+                <th data-sort="5y" data-index="9">5Y %</th>
+                <th data-sort="stopaj" data-index="10">STOPAJ %</th>
+                <th data-sort="yonetimbas" data-index="11">YÖN.ÜC %</th>
+                <th data-sort="link" data-index="12">LİNK</th>
+              </tr>
+            </thead>
+            <tbody id="fvt-table-body">
+              <tr>
+                <td colspan="13" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
               </tr>
             </tbody>
           </table>

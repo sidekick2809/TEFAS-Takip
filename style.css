@@ -646,10 +646,38 @@ tr.stale-row td {
   font-weight: 400;
 }
 
+/* FVT Table - Limit fund name width */
+#fvt-table-body .fund-name-sub {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* FVT Table - Compact row spacing */
+#fvt-table-body td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  line-height: 1.2;
+  font-size: 0.7rem;
+}
+
+#fvt-table-body .fund-name-sub {
+  margin-top: 0;
+}
+
+/* YAT, BES and Dashboard Table - Font size */
+#data-table-container td,
+#data-table-container-bes td,
+#dashboard-table-container td {
+  font-size: 0.7rem;
+}
+
 .lot-value-main {
   display: block;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 11.2px;
+  color: #7551ff;
 }
 
 .lot-value-sub {
