@@ -36,75 +36,100 @@
         </svg>
         <h1 style="color: var(--text-main);">TEFAS</h1>
         <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Menüyü Kilitle/Gizle">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
-            <path
-              d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16v-2">
-            </path>
-            <circle cx="12" cy="12" r="3"></circle>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
           </svg>
         </button>
       </div>
 
       <nav class="sidebar-nav tab-nav">
         <button class="sidebar-btn tab-btn active has-tooltip" data-tooltip="Dashboard" data-tab="tab-dashboard">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
+          <div class="icon-wrapper dash">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </div>
           <span>Dashboard</span>
         </button>
         <div class="sidebar-separator"></div>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="FON Verileri" data-tab="tab-veriler">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="20" x2="12" y2="10" />
-            <line x1="18" y1="20" x2="18" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="16" />
-          </svg>
+          <div class="icon-wrapper funds">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="20" x2="12" y2="10"></line>
+              <line x1="18" y1="20" x2="18" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="16"></line>
+            </svg>
+          </div>
           <span>FON Verileri</span>
         </button>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="BES Verileri" data-tab="tab-veriler-bes">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
+          <div class="icon-wrapper bes">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
           <span>BES Verileri</span>
         </button>
         <div class="sidebar-separator"></div>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="FON İşlemler" data-tab="tab-portfolio">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M20 7h-7L10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" />
-          </svg>
+          <div class="icon-wrapper portfolio">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <line x1="12" y1="11" x2="12" y2="17"></line>
+              <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+          </div>
           <span>FON İşlemler</span>
         </button>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="BES İşlemler" data-tab="tab-bes-portfolio">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M20 7h-7L10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" />
-          </svg>
+          <div class="icon-wrapper bes-port">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              <rect x="8" y="11" width="8" height="6" rx="1"></rect>
+            </svg>
+          </div>
           <span>BES İşlemler</span>
         </button>
         <div class="sidebar-separator"></div>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="Para Akışı" data-tab="tab-flow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-            <polyline points="17 6 23 6 23 12" />
-          </svg>
+          <div class="icon-wrapper flow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+          </div>
           <span>Para Akışı</span>
         </button>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="KAP Bildirimleri" data-tab="tab-kap">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
+          <div class="icon-wrapper kap">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
           <span>KAP Bildirimleri</span>
         </button>
         <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="FVT Data" data-tab="tab-fvt">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-            <polyline points="17 6 23 6 23 12" />
-          </svg>
+          <div class="icon-wrapper fvt">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+          </div>
           <span>FVT Data</span>
         </button>
       </nav>
@@ -115,7 +140,7 @@
       <div class="top-bar">
         <div class="page-title-group">
           <div class="breadcrumb" style="display:none">Sayfalar / <span id="current-tab-name">Dashboard</span></div>
-          <h2 id="main-title">Ana Dashboard</h2>
+          <h2 id="main-title">Dashboard</h2>
         </div>
 
         <div class="header-minimal">
@@ -510,6 +535,7 @@
           <table id="data-table">
             <thead>
               <tr>
+                <th data-sort="fav" data-index="-1" class="fav-col">Fav</th>
                 <th data-sort="code" data-index="0">KOD / UNVAN</th>
                 <th data-sort="1g" data-index="2">1G %</th>
                 <th data-sort="1h" data-index="3">1H %</th>
@@ -531,7 +557,7 @@
             </thead>
             <tbody id="table-body">
               <tr>
-                <td colspan="17" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
+                <td colspan="18" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
               </tr>
             </tbody>
           </table>
@@ -686,6 +712,7 @@
           <table id="data-table-bes">
             <thead>
               <tr>
+                <th data-sort="fav" data-index="-1" class="fav-col">Fav</th>
                 <th data-sort="code" data-index="0">KOD / UNVAN</th>
                 <th data-sort="1g" data-index="2">1G %</th>
                 <th data-sort="1h" data-index="3">1H %</th>
@@ -707,7 +734,7 @@
             </thead>
             <tbody id="table-body-bes">
               <tr>
-                <td colspan="17" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
+                <td colspan="18" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
               </tr>
             </tbody>
           </table>
@@ -1487,9 +1514,26 @@
         </div>
 
         <div id="fvt-table-container" class="table-container fade-in">
+          <!-- Favorites Section -->
+          <div id="fvt-favorites-section" class="favorites-section" style="display: none;">
+            <div class="favorites-header">
+              <h4>Anlık Tahmin <span id="fav-count">(0)</span></h4>
+              <button id="refresh-favorites-btn" class="icon-btn has-tooltip" data-tooltip="Favorileri Yenile">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+            </div>
+            <div id="fvt-favorites-list" class="favorites-list"></div>
+          </div>
+
           <table id="fvt-table">
             <thead>
               <tr>
+                <th data-sort="fav" data-index="-1" class="fav-col">Fav</th>
                 <th data-sort="kod" data-index="0">KOD</th>
                 <th data-sort="kategori" data-index="1">KATEGORİ</th>
                 <th data-sort="1h" data-index="2">1H %</th>
@@ -1507,7 +1551,7 @@
             </thead>
             <tbody id="fvt-table-body">
               <tr>
-                <td colspan="13" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
+                <td colspan="14" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
               </tr>
             </tbody>
           </table>
@@ -1573,6 +1617,7 @@
           <input type="date" id="setting-seven" class="form-input">
         </div>
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button id="settings-default-btn" class="secondary-btn" style="flex: 1;">Varsayılan</button>
           <button id="settings-save-btn" class="primary-btn" style="flex: 1;">Kaydet</button>
           <button id="settings-close-btn" class="secondary-btn outline" style="flex: 1;">Kapat</button>
         </div>
@@ -1595,9 +1640,55 @@
           <input type="date" id="flow-setting-yesterday" class="form-input">
         </div>
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button id="flow-settings-default-btn" class="secondary-btn" style="flex: 1;">Varsayılan</button>
           <button id="flow-settings-save-btn" class="primary-btn" style="flex: 1;">Kaydet</button>
           <button id="flow-settings-close-btn" class="secondary-btn outline" style="flex: 1;">Kapat</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FVT Fund Detail Modal -->
+  <div id="fvt-fund-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 90%; max-width: 500px;">
+      <div class="add-panel-header">
+        <h3 id="fvt-fund-title">Fon Detayı</h3>
+        <p class="add-panel-hint" id="fvt-fund-subtitle"></p>
+      </div>
+      <div id="fvt-fund-content" style="padding: 1rem;">
+        <div id="fvt-fund-loading" style="text-align: center; padding: 2rem;">
+          <div class="loader-spinner"></div>
+          <p style="margin-top: 1rem;">Veriler yükleniyor...</p>
+        </div>
+        <div id="fvt-fund-data" style="display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="stat-card">
+              <span class="stat-label">Günlük Değişim</span>
+              <span id="fvt-fund-change" class="stat-value val-up">--</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Fiyat</span>
+              <span id="fvt-fund-price" class="stat-value">--</span>
+            </div>
+          </div>
+          <div style="text-align: center;">
+            <a id="fvt-fund-link" href="#" target="_blank" class="primary-btn" style="display: inline-block;">
+              FVT'de Göster
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="margin-left: 8px;">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+        </div>
+        <div id="fvt-fund-error" style="display: none; text-align: center; padding: 2rem; color: var(--text-error);">
+          <p>Veri yüklenirken hata oluştu.</p>
+        </div>
+      </div>
+      <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
+        <button id="fvt-fund-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
       </div>
     </div>
   </div>

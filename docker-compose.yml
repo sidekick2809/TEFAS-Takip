@@ -8,5 +8,5 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - /Users/mehmet/Desktop/tefas_veriler:/app/data
+      - ${DATA_PATH:-./data}:/app/data
     restart: unless-stopped

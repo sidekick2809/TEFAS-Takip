@@ -27,6 +27,9 @@ class TefasDataView {
         this.sirketSelect = document.getElementById(config.sirketSelectId);
         this.searchInput = document.getElementById(config.searchInputId);
 
+        // Favorites
+        this.favorites = new Set();
+
         // State
         this.fullData = [];
         this.currentData = [];
@@ -90,6 +93,9 @@ class TefasDataView {
             this.applyFilters();
         });
 
+        // Load favorites from server
+        this.loadFavorites();
+
         // Local Storage Load
         this.loadFromStorage();
     }
@@ -105,6 +111,39 @@ class TefasDataView {
         this.turSelect?.classList.remove('open');
         this.turcSelect?.classList.remove('open');
         this.sirketSelect?.classList.remove('open');
+    }
+
+    async loadFavorites() {
+        try {
+            const response = await fetch('/api/favorites');
+            if (response.ok) {
+                const codes = await response.json();
+                this.favorites = new Set(codes);
+            }
+        } catch (err) {
+            console.error('Favoriler yüklenemedi:', err);
+        }
+    }
+
+    async toggleFavorite(code) {
+        const isFavorite = this.favorites.has(code);
+        try {
+            if (isFavorite) {
+                await fetch(`/api/favorites?code=${encodeURIComponent(code)}`, { method: 'DELETE' });
+                this.favorites.delete(code);
+            } else {
+                await fetch('/api/favorites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                this.favorites.add(code);
+            }
+            // Re-render table to update heart icons
+            this.renderTable(this.currentData);
+        } catch (err) {
+            console.error('Favori güncellenemedi:', err);
+        }
     }
 
     async loadFromStorage() {
@@ -377,7 +416,7 @@ class TefasDataView {
         this.tbody.innerHTML = '';
 
         if (data.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="17" class="empty-state">Veri bulunamadı.</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="18" class="empty-state">Veri bulunamadı.</td></tr>';
             return;
         }
 
@@ -385,8 +424,19 @@ class TefasDataView {
             const tr = document.createElement('tr');
             if (row[18]) tr.classList.add('stale-row');
 
+            const code = row[0];
+            const isFavorite = this.favorites.has(code);
+            const heartIcon = isFavorite
+                ? '<svg class="fav-icon favorited" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
+                : '<svg class="fav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+
             const trophy1H = (typeof row[3] === 'number' && row[3] > 0.05) ? ' <span class="trophy-icon" title="1H % > 5%">🏆</span>' : '';
             tr.innerHTML = `
+                <td class="fav-col">
+                    <button class="fav-btn" data-code="${code}" title="Favorilere Ekle/Çıkar">
+                        ${heartIcon}
+                    </button>
+                </td>
                 <td class="has-tooltip" data-tooltip="${row[1]}">
                     <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
                     <div class="wrap-text unvan-text fund-name-sub">${row[1]}</div>
@@ -408,6 +458,14 @@ class TefasDataView {
                 <td class="advanced-hidden">${formatPrice(row[16])}</td>
                 <td class="advanced-hidden">${formatPrice(row[17])}</td>
             `;
+
+            // Add click handler for favorite button
+            const favBtn = tr.querySelector('.fav-btn');
+            favBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleFavorite(code);
+            });
+
             this.tbody.appendChild(tr);
         });
     }
@@ -418,6 +476,33 @@ class TefasDataView {
         if (!sortKey) return;
 
         const colIndex = parseInt(th.dataset.index);
+
+        // Handle favorites sorting (colIndex === -1)
+        if (sortKey === 'fav') {
+            if (this.currentSortCol === -1) {
+                this.currentSortAsc = !this.currentSortAsc;
+            } else {
+                this.currentSortCol = -1;
+                this.currentSortAsc = true; // Favorites first (descending: favorites first)
+            }
+
+            this.table.querySelectorAll('thead th').forEach(el => el.classList.remove('sort-asc', 'sort-desc'));
+            th.classList.add(this.currentSortAsc ? 'sort-asc' : 'sort-desc');
+
+            showLoading();
+            setTimeout(() => {
+                this.currentData.sort((a, b) => {
+                    const favA = this.favorites.has(a[0]) ? 1 : 0;
+                    const favB = this.favorites.has(b[0]) ? 1 : 0;
+                    if (favA === favB) return 0;
+                    return this.currentSortAsc ? (favA > favB ? 1 : -1) : (favA > favB ? -1 : 1);
+                });
+                this.renderTable(this.currentData);
+                hideLoading();
+            }, 10);
+            return;
+        }
+
         if (this.currentSortCol === colIndex) {
             this.currentSortAsc = !this.currentSortAsc;
         } else {
@@ -581,6 +666,9 @@ class FVTDataView {
         this.sirketSelect = document.getElementById(config.sirketSelectId);
         this.searchInput = document.getElementById(config.searchInputId);
 
+        // Favorites
+        this.favorites = new Set();
+
         // State
         this.fullData = [];
         this.currentData = [];
@@ -631,6 +719,9 @@ class FVTDataView {
             this.applyFilters();
         });
 
+        // Load favorites from server
+        this.loadFavorites();
+
         // Local Storage Load
         this.loadFromStorage();
     }
@@ -645,6 +736,44 @@ class FVTDataView {
     closeAllDropdowns() {
         this.kategoriSelect?.classList.remove('open');
         this.sirketSelect?.classList.remove('open');
+    }
+
+    async loadFavorites() {
+        try {
+            const response = await fetch('/api/fvt-favorites');
+            if (response.ok) {
+                const codes = await response.json();
+                this.favorites = new Set(codes);
+            }
+        } catch (err) {
+            console.error('FVT Favoriler yüklenemedi:', err);
+        }
+    }
+
+    async toggleFavorite(code) {
+        const isFavorite = this.favorites.has(code);
+        try {
+            if (isFavorite) {
+                await fetch(`/api/fvt-favorites?code=${encodeURIComponent(code)}`, { method: 'DELETE' });
+                this.favorites.delete(code);
+            } else {
+                await fetch('/api/fvt-favorites', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                this.favorites.add(code);
+            }
+            // Re-render table to update heart icons
+            this.renderTable(this.currentData);
+            // Reload favorites list and clear cache
+            if (typeof loadFavoritesList === 'function') {
+                localStorage.removeItem('fvtFavoritesRealtime');
+                loadFavoritesList();
+            }
+        } catch (err) {
+            console.error('FVT Favori güncellenemedi:', err);
+        }
     }
 
     async loadFromStorage() {
@@ -742,7 +871,7 @@ class FVTDataView {
         this.tbody.innerHTML = '';
 
         if (data.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="13" class="empty-state">Veri bulunamadı.</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="14" class="empty-state">Veri bulunamadı.</td></tr>';
             return;
         }
 
@@ -754,9 +883,20 @@ class FVTDataView {
             // 4: uc_aylik_getiri, 5: alti_aylik_getiri, 6: ytd_getiri, 7: bir_yillik_getiri
             // 8: uc_yillik_getiri, 9: bes_yillik_getiri, 10: stopaj, 11: yonetim_ucret, 12: fonlink
 
+            const code = row.fon_kodu;
+            const isFavorite = this.favorites.has(code);
+            const heartIcon = isFavorite
+                ? '<svg class="fav-icon favorited" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
+                : '<svg class="fav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+
             const linkUrl = row.fonlink ? `https://fvt.com.tr/yatirim-fonlari/${row.fonlink}/` : '#';
 
             tr.innerHTML = `
+                <td class="fav-col">
+                    <button class="fav-btn" data-code="${code}" title="Favorilere Ekle/Çıkar">
+                        ${heartIcon}
+                    </button>
+                </td>
                 <td class="has-tooltip" data-tooltip="${row.fon_adi || ''}">
                     <strong>${row.fon_kodu || ''}</strong>
                     <div class="wrap-text unvan-text fund-name-sub">${row.fon_adi || ''}</div>
@@ -774,6 +914,14 @@ class FVTDataView {
                 <td>${this.formatPercent(row.yonetim_ucret)}</td>
                 <td>${row.fonlink ? '<a href="' + linkUrl + '" target="_blank" class="fund-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>' : '-'}</td>
             `;
+
+            // Add click handler for favorite button
+            const favBtn = tr.querySelector('.fav-btn');
+            favBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleFavorite(code);
+            });
+
             this.tbody.appendChild(tr);
         });
     }
@@ -792,6 +940,33 @@ class FVTDataView {
         if (!sortKey) return;
 
         const colIndex = parseInt(th.dataset.index);
+
+        // Handle favorites sorting (colIndex === -1)
+        if (sortKey === 'fav') {
+            if (this.currentSortCol === -1) {
+                this.currentSortAsc = !this.currentSortAsc;
+            } else {
+                this.currentSortCol = -1;
+                this.currentSortAsc = true;
+            }
+
+            this.table.querySelectorAll('thead th').forEach(el => el.classList.remove('sort-asc', 'sort-desc'));
+            th.classList.add(this.currentSortAsc ? 'sort-asc' : 'sort-desc');
+
+            showLoading();
+            setTimeout(() => {
+                this.currentData.sort((a, b) => {
+                    const favA = this.favorites.has(a.fon_kodu) ? 1 : 0;
+                    const favB = this.favorites.has(b.fon_kodu) ? 1 : 0;
+                    if (favA === favB) return 0;
+                    return this.currentSortAsc ? (favA > favB ? 1 : -1) : (favA > favB ? -1 : 1);
+                });
+                this.renderTable(this.currentData);
+                hideLoading();
+            }, 10);
+            return;
+        }
+
         if (this.currentSortCol === colIndex) {
             this.currentSortAsc = !this.currentSortAsc;
         } else {
@@ -1080,6 +1255,145 @@ window.addEventListener('DOMContentLoaded', () => {
         searchInputId: 'fvt-search-input'
     });
 
+    // FVT Favorites Section - Load and display favorites with real-time data
+    const fvtFavoritesSection = document.getElementById('fvt-favorites-section');
+    const fvtFavoritesList = document.getElementById('fvt-favorites-list');
+    const fvtFavCount = document.getElementById('fav-count');
+    const refreshFavoritesBtn = document.getElementById('refresh-favorites-btn');
+    const FVT_FAVORITES_REALTIME_KEY = 'fvtFavoritesRealtime';
+
+    // Load cached favorites data from localStorage
+    function loadCachedFavorites() {
+        const cached = localStorage.getItem(FVT_FAVORITES_REALTIME_KEY);
+        if (!cached) return null;
+        try {
+            return JSON.parse(cached);
+        } catch {
+            return null;
+        }
+    }
+
+    // Save favorites data to localStorage
+    function saveCachedFavorites(data) {
+        localStorage.setItem(FVT_FAVORITES_REALTIME_KEY, JSON.stringify(data));
+    }
+
+    async function loadFavoritesList() {
+        if (!fvtFavoritesList || !fvtFavCount) return;
+
+        try {
+            // First load basic favorites data
+            const response = await fetch('/api/fvt-favorites-data');
+            if (!response.ok) throw new Error('API error');
+            const result = await response.json();
+            const data = result.data || [];
+
+            fvtFavCount.textContent = `(${data.length})`;
+
+            if (data.length === 0) {
+                fvtFavoritesSection.style.display = 'none';
+                return;
+            }
+
+            fvtFavoritesSection.style.display = 'block';
+            fvtFavoritesList.innerHTML = '';
+
+            // Load cached real-time data
+            const cachedData = loadCachedFavorites();
+
+            data.forEach(fund => {
+                const card = document.createElement('div');
+                card.className = 'favorite-fund-card';
+                card.dataset.code = fund.fon_kodu;
+                card.dataset.name = fund.fon_adi || '';
+
+                // Check if we have cached real-time data for this fund
+                const cachedFund = cachedData?.find(c => c.code === fund.fon_kodu);
+                let changeStr = 'Güncelle';
+                let changeClass = 'neutral';
+
+                if (cachedFund && cachedFund.change !== null) {
+                    const changeNum = parseFloat(cachedFund.change);
+                    changeClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
+                    changeStr = (changeNum > 0 ? '+' : '') + changeNum.toFixed(2) + '%';
+                }
+
+                card.innerHTML = `
+                    <span class="fund-code">${fund.fon_kodu}</span>
+                    <span class="fund-change ${changeClass}">${changeStr}</span>
+                `;
+
+                fvtFavoritesList.appendChild(card);
+            });
+        } catch (err) {
+            console.error('Error loading favorites:', err);
+            fvtFavoritesSection.style.display = 'none';
+        }
+    }
+
+    async function refreshFavoritesRealTime() {
+        if (!fvtFavoritesList) return;
+
+        // Show loading state on button
+        if (refreshFavoritesBtn) {
+            refreshFavoritesBtn.classList.add('loading');
+        }
+
+        try {
+            const response = await fetch('/api/fvt-favorites-realtime');
+            if (!response.ok) throw new Error('API error');
+            const result = await response.json();
+            const data = result.data || [];
+
+            // Save to localStorage
+            saveCachedFavorites(data);
+
+            data.forEach(fund => {
+                const card = fvtFavoritesList.querySelector(`[data-code="${fund.code}"]`);
+                if (!card) return;
+
+                const change = fund.change;
+                let changeClass = 'neutral';
+                let changeStr = '--';
+
+                if (change !== null && change !== undefined) {
+                    const changeNum = parseFloat(change);
+                    changeClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
+                    changeStr = (changeNum > 0 ? '+' : '') + changeNum.toFixed(2) + '%';
+                } else {
+                    changeStr = fund.error || 'Hata';
+                }
+
+                card.innerHTML = `
+                    <span class="fund-code">${fund.code}</span>
+                    <span class="fund-change ${changeClass}">${changeStr}</span>
+                `;
+            });
+        } catch (err) {
+            console.error('Error refreshing favorites:', err);
+        } finally {
+            if (refreshFavoritesBtn) {
+                refreshFavoritesBtn.classList.remove('loading');
+            }
+        }
+    }
+
+    // Event listener for refresh button
+    refreshFavoritesBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        refreshFavoritesRealTime();
+    });
+
+    // Load favorites when FVT tab is shown
+    document.querySelector('[data-tab="tab-fvt"]')?.addEventListener('click', () => {
+        setTimeout(loadFavoritesList, 100);
+    });
+
+    // Also load initially if already on FVT tab
+    if (document.getElementById('tab-fvt')?.classList.contains('active')) {
+        setTimeout(loadFavoritesList, 100);
+    }
+
     // Clear database buttons
     document.getElementById('clear-btn')?.addEventListener('click', async () => {
         if (!confirm('YAT fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
@@ -1121,7 +1435,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('clear-fvt-btn')?.addEventListener('click', async () => {
-        if (!confirm('FVT fon verileri veritabanından temizlenecek. Emin misiniz?')) return;
         try {
             await fetch('/api/fvt-clear', { method: 'DELETE' });
             localStorage.removeItem('fvtData');
@@ -1187,6 +1500,7 @@ const settingsBtnBes = document.getElementById('settings-btn-bes');
 const settingsModal = document.getElementById('settings-modal');
 const settingsCloseBtn = document.getElementById('settings-close-btn');
 const settingsSaveBtn = document.getElementById('settings-save-btn');
+const settingsDefaultBtn = document.getElementById('settings-default-btn');
 const inputToday = document.getElementById('setting-today');
 const inputTarget = document.getElementById('setting-target');
 const inputSeven = document.getElementById('setting-seven');
@@ -1199,8 +1513,35 @@ const openSettings = () => {
     inputSeven.value = toIso(current.sevenDaysAgo);
     settingsModal.style.display = 'flex';
 };
+
+const setDefaultDates = () => {
+    const f = (date) => `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+    const toIso = (dotStr) => { if (!dotStr || dotStr === '-') return ''; const [d, m, y] = dotStr.split('.'); return `${y}-${m}-${d}`; };
+
+    // Bugünün tarihi
+    const today = new Date();
+    inputToday.value = toIso(f(today));
+
+    // Target (dün) - Pazartesi ise 3 gün önce, değilse 1 gün önce
+    const target = new Date();
+    if (target.getDay() === 1) {
+        target.setDate(target.getDate() - 3);
+    } else {
+        target.setDate(target.getDate() - 1);
+    }
+    inputTarget.value = toIso(f(target));
+
+    // 7 gün önce
+    const sevenDays = new Date();
+    sevenDays.setDate(sevenDays.getDate() - 7);
+    inputSeven.value = toIso(f(sevenDays));
+
+    showStatus('Tarihler varsayılan değerlere sıfırlandı.');
+};
+
 settingsBtn?.addEventListener('click', openSettings);
 settingsBtnBes?.addEventListener('click', openSettings);
+settingsDefaultBtn?.addEventListener('click', setDefaultDates);
 settingsCloseBtn?.addEventListener('click', () => { settingsModal.style.display = 'none'; });
 settingsSaveBtn?.addEventListener('click', () => {
     const dates = { today: inputToday.value, target: inputTarget.value, seven: inputSeven.value };

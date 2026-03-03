@@ -1,13 +1,19 @@
 // flow.js handles the Para Akışı tab calculations and rendering
 const flowBody = document.getElementById('flow-body');
+const flowTable = document.getElementById('flow-table');
 const refreshFlowBtn = document.getElementById('refresh-flow-btn');
 const flowSettingsBtn = document.getElementById('flow-settings-btn');
 const flowSettingsModal = document.getElementById('flow-settings-modal');
 const flowSettingsSaveBtn = document.getElementById('flow-settings-save-btn');
 const flowSettingsCloseBtn = document.getElementById('flow-settings-close-btn');
+const flowSettingsDefaultBtn = document.getElementById('flow-settings-default-btn');
 
 const settingTodayInput = document.getElementById('flow-setting-today');
 const settingYesterdayInput = document.getElementById('flow-setting-yesterday');
+
+// Sorting state
+let flowSortColumn = 'code';
+let flowSortDirection = 'asc';
 
 function getActiveFunds() {
     const portfolio = JSON.parse(localStorage.getItem('tefasPortfolio')) || [];
@@ -168,15 +174,47 @@ function renderFlowTable(results) {
     // Get full data for returns
     const fullData = window.fullData || JSON.parse(localStorage.getItem('tefasData')) || [];
 
-    // Sort results by code alphabetically
-    results.sort((a, b) => a.code.localeCompare(b.code));
-
+    // Add gunYuzde to results for sorting
     results.forEach(item => {
         const liveRow = fullData.find(r => r[0] === item.code);
-        const gunYuzde = liveRow ? liveRow[2] : null;
+        item.gunYuzde = liveRow ? liveRow[2] : null;
+        item.netAkis = item.today - (item.yesterday * (1 + (item.gunYuzde || 0)));
+    });
 
-        const netAkis = item.today - (item.yesterday * (1 + (gunYuzde || 0)));
+    // Sort results based on current sort column and direction
+    results.sort((a, b) => {
+        let valA, valB;
 
+        switch (flowSortColumn) {
+            case 'code':
+                valA = a.code;
+                valB = b.code;
+                return flowSortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            case 'today':
+                valA = a.today;
+                valB = b.today;
+                break;
+            case 'yesterday':
+                valA = a.yesterday;
+                valB = b.yesterday;
+                break;
+            case 'gunYuzde':
+                valA = a.gunYuzde || 0;
+                valB = b.gunYuzde || 0;
+                break;
+            case 'netAkis':
+                valA = a.netAkis;
+                valB = b.netAkis;
+                break;
+            default:
+                valA = a.code;
+                valB = b.code;
+        }
+
+        return flowSortDirection === 'asc' ? valA - valB : valB - valA;
+    });
+
+    results.forEach(item => {
         const formatPercent = (val) => {
             if (val === null || val === undefined) return '<span class="val-zero">-</span>';
             const num = val * 100;
@@ -193,13 +231,54 @@ function renderFlowTable(results) {
             </td>
             <td>${item.today.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
             <td>${item.yesterday.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-            <td>${formatPercent(gunYuzde)}</td>
-            <td class="${netAkis > 1 ? 'val-up' : netAkis < -1 ? 'val-down' : 'val-zero'}">
-                ${netAkis > 0 ? '+' : ''}${netAkis.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            <td>${formatPercent(item.gunYuzde)}</td>
+            <td class="${item.netAkis > 1 ? 'val-up' : item.netAkis < -1 ? 'val-down' : 'val-zero'}">
+                ${item.netAkis > 0 ? '+' : ''}${item.netAkis.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </td>
         `;
         flowBody.appendChild(tr);
     });
+
+    updateFlowSortIcons();
+}
+
+function updateFlowSortIcons() {
+    const headers = flowTable.querySelectorAll('thead th');
+    headers.forEach((th, index) => {
+        // Remove existing sort classes
+        th.classList.remove('sort-asc', 'sort-desc');
+
+        const columns = ['code', 'today', 'yesterday', 'gunYuzde', 'netAkis'];
+        const colName = columns[index];
+
+        if (colName === flowSortColumn) {
+            th.classList.add(flowSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    });
+}
+
+function handleFlowSort(event) {
+    const th = event.target.closest('th');
+    if (!th) return;
+
+    const headers = Array.from(flowTable.querySelectorAll('thead th'));
+    const colIndex = headers.indexOf(th);
+
+    const columns = ['code', 'today', 'yesterday', 'gunYuzde', 'netAkis'];
+    const newColumn = columns[colIndex];
+
+    if (flowSortColumn === newColumn) {
+        flowSortDirection = flowSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        flowSortColumn = newColumn;
+        flowSortDirection = 'asc';
+    }
+
+    // Re-render the table with saved data
+    const saved = localStorage.getItem('tefasFlowData-YAT');
+    if (saved) {
+        renderFlowTable(JSON.parse(saved));
+    }
 }
 
 // Export for transactions.js tab switching
@@ -243,7 +322,33 @@ if (flowSettingsSaveBtn) {
         if (valYesterday) localStorage.setItem('flowManualYesterday', valYesterday);
 
         flowSettingsModal.style.display = 'none';
-        alert('Tarih ayarları kaydedildi. Verileri güncelle butonuna basarak yeni tarihlerle veri çekebilirsiniz.');
+        showStatusMessage('Tarih ayarları kaydedildi. Verileri güncelle butonuna basarak yeni tarihlerle veri çekebilirsiniz.', 'success');
+    });
+}
+
+if (flowSettingsDefaultBtn) {
+    flowSettingsDefaultBtn.addEventListener('click', () => {
+        const f = (date) => {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${year}-${month}-${day}`;
+        };
+
+        // Bugünün tarihi
+        const today = new Date();
+        settingTodayInput.value = f(today);
+
+        // Dün (target) - Pazartesi ise 3 gün önce, değilse 1 gün önce
+        const yesterday = new Date();
+        if (yesterday.getDay() === 1) {
+            yesterday.setDate(yesterday.getDate() - 3);
+        } else {
+            yesterday.setDate(yesterday.getDate() - 1);
+        }
+        settingYesterdayInput.value = f(yesterday);
+
+        showStatusMessage('Tarihler varsayılan değerlere sıfırlandı.', 'success');
     });
 }
 
@@ -425,4 +530,12 @@ if (clearKapBtn) {
 window.addEventListener('DOMContentLoaded', () => {
     window.renderFlow();
     loadKapData();
+
+    // Add sorting event listener to flow table
+    if (flowTable) {
+        const flowThead = flowTable.querySelector('thead');
+        if (flowThead) {
+            flowThead.addEventListener('click', handleFlowSort);
+        }
+    }
 });

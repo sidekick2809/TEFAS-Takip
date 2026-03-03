@@ -85,6 +85,24 @@ try {
     // Column might already exist or table is new, ignore error
 }
 
+// Create favorites table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS favorites (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        code      TEXT UNIQUE NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Create FVT favorites table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS fvt_favorites (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        code      TEXT UNIQUE NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
 // TEFAS and BES history tables
 db.exec(`
     CREATE TABLE IF NOT EXISTS yat_history (
@@ -279,6 +297,82 @@ app.post('/api/bes-portfolio', (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'BES verisi kaydedilemedi' });
+    }
+});
+
+// API: Favorites - Get all
+app.get('/api/favorites', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT code FROM favorites ORDER BY createdAt DESC').all();
+        res.json(rows.map(r => r.code));
+    } catch (err) {
+        res.status(500).json({ error: 'Favoriler okunamadı' });
+    }
+});
+
+// API: Favorites - Add
+app.post('/api/favorites', (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ error: 'Kod gereklidir' });
+        }
+        db.prepare('INSERT OR IGNORE INTO favorites (code) VALUES (?)').run(code);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Favori eklenemedi' });
+    }
+});
+
+// API: Favorites - Remove
+app.delete('/api/favorites', (req, res) => {
+    try {
+        const { code } = req.query;
+        if (!code) {
+            return res.status(400).json({ error: 'Kod gereklidir' });
+        }
+        db.prepare('DELETE FROM favorites WHERE code = ?').run(code);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Favori silinemedi' });
+    }
+});
+
+// API: FVT Favorites - Get all
+app.get('/api/fvt-favorites', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT code FROM fvt_favorites ORDER BY createdAt DESC').all();
+        res.json(rows.map(r => r.code));
+    } catch (err) {
+        res.status(500).json({ error: 'FVT Favoriler okunamadı' });
+    }
+});
+
+// API: FVT Favorites - Add
+app.post('/api/fvt-favorites', (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) {
+            return res.status(400).json({ error: 'Kod gereklidir' });
+        }
+        db.prepare('INSERT OR IGNORE INTO fvt_favorites (code) VALUES (?)').run(code);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT Favori eklenemedi' });
+    }
+});
+
+// API: FVT Favorites - Remove
+app.delete('/api/fvt-favorites', (req, res) => {
+    try {
+        const { code } = req.query;
+        if (!code) {
+            return res.status(400).json({ error: 'Kod gereklidir' });
+        }
+        db.prepare('DELETE FROM fvt_favorites WHERE code = ?').run(code);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT Favori silinemedi' });
     }
 });
 
@@ -505,6 +599,147 @@ app.delete('/api/fvt-clear', (req, res) => {
         res.json({ success: true, message: 'FVT verileri temizlendi' });
     } catch (err) {
         res.status(500).json({ error: 'FVT verisi temizlenemedi' });
+    }
+});
+
+// API: FVT Favorites - Get all with full data
+app.get('/api/fvt-favorites-data', (req, res) => {
+    try {
+        const favRows = db.prepare('SELECT code FROM fvt_favorites ORDER BY createdAt DESC').all();
+        const codes = favRows.map(r => r.code);
+        if (codes.length === 0) {
+            return res.json({ data: [], count: 0 });
+        }
+        const placeholders = codes.map(() => '?').join(',');
+        const rows = db.prepare(`SELECT * FROM fvt_data WHERE fon_kodu IN (${placeholders}) ORDER BY fon_kodu`).all(...codes);
+        res.json({ data: rows, count: rows.length });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT Favori verileri okunamadı' });
+    }
+});
+
+// API: FVT Favorites - Get real-time data for all favorites
+app.get('/api/fvt-favorites-realtime', async (req, res) => {
+    try {
+        const favRows = db.prepare('SELECT code FROM fvt_favorites ORDER BY createdAt DESC').all();
+        const codes = favRows.map(r => r.code);
+        if (codes.length === 0) {
+            return res.json({ data: [], count: 0 });
+        }
+
+        const placeholders = codes.map(() => '?').join(',');
+        const funds = db.prepare(`SELECT fon_kodu, fon_adi, fonlink FROM fvt_data WHERE fon_kodu IN (${placeholders})`).all(...codes);
+
+        const results = [];
+        for (const fund of funds) {
+            if (!fund.fonlink) {
+                results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: null, error: 'No link' });
+                continue;
+            }
+
+            try {
+                const fundUrl = `https://fvt.com.tr/yatirim-fonlari/${fund.fonlink}/`;
+                const response = await fetch(fundUrl, {
+                    headers: {
+                        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                });
+
+                if (!response.ok) {
+                    results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: null, error: 'Fetch error' });
+                    continue;
+                }
+
+                const html = await response.text();
+
+                // Extract change value from h5 > span element (XPath: //*[@id="main-content"]/div[1]/div/div[1]/div/div/div[2]/div/div/div/div[1]/h5/span)
+                const h5SpanMatch = html.match(/<h5[^>]*class="[^"]*updated[^"]*"[^>]*>[\s\S]*?<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
+                const anyH5SpanMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
+                const updatedMatch = html.match(/<h5[^>]*>\s*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?/i);
+
+                let change = null;
+                if (h5SpanMatch) {
+                    change = h5SpanMatch[1].replace(',', '.');
+                } else if (anyH5SpanMatch) {
+                    change = anyH5SpanMatch[1].replace(',', '.');
+                } else if (updatedMatch) {
+                    change = updatedMatch[1].replace(',', '.');
+                }
+
+                results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: change });
+            } catch (err) {
+                results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: null, error: err.message });
+            }
+        }
+
+        res.json({ data: results, count: results.length });
+    } catch (err) {
+        res.status(500).json({ error: 'FVT Favori realtime verileri okunamadı' });
+    }
+});
+
+// API: FVT Single Fund - Get real-time data from FVT website
+app.get('/api/fvt-fund/:code', async (req, res) => {
+    try {
+        const code = req.params.code;
+        // First get the fonlink from database
+        const fund = db.prepare('SELECT fonlink, fon_kodu, fon_adi FROM fvt_data WHERE fon_kodu = ?').get(code);
+        if (!fund || !fund.fonlink) {
+            return res.status(404).json({ error: 'Fon bulunamadı' });
+        }
+
+        // Fetch from FVT website
+        const fundUrl = `https://fvt.com.tr/yatirim-fonlari/${fund.fonlink}/`;
+        const response = await fetch(fundUrl, {
+            headers: {
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`FVT fetch error: ${response.status}`);
+        }
+
+        const html = await response.text();
+
+        // Extract change value using XPath-like approach
+        // The XPath: //*[@id="main-content"]/div[1]/div/div[1]/div/div/div[2]/div/div/div/div[1]/h5/span
+        // Looking for: #main-content > div:nth-child(1) > div > div.card.fvt-card > div > div > div.col-12.col-sm-12.col-xxl-auto.mb-3.mb-md-0.bg-none > div > div > div > div.col-auto.text-start.bg-none.py-2.updated > h5 > span
+
+        // Match the updated section containing h5 > span with the change value
+        const h5SpanMatch = html.match(/<h5[^>]*class="[^"]*updated[^"]*"[^>]*>[\s\S]*?<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
+        const anyH5SpanMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
+        const updatedMatch = html.match(/<h5[^>]*>\s*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?/i);
+        const priceMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([\d.,]+)<\/span>/i);
+
+        let change = null;
+        if (h5SpanMatch) {
+            change = h5SpanMatch[1].replace(',', '.');
+        } else if (anyH5SpanMatch) {
+            change = anyH5SpanMatch[1].replace(',', '.');
+        } else if (updatedMatch) {
+            change = updatedMatch[1].replace(',', '.');
+        }
+
+        const result = {
+            code: fund.fon_kodu,
+            name: fund.fon_adi,
+            url: fundUrl,
+            change: change,
+            price: priceMatch ? priceMatch[1].replace(',', '.') : null,
+            debug: {
+                h5SpanMatch: h5SpanMatch ? h5SpanMatch[1] : null,
+                anyH5SpanMatch: anyH5SpanMatch ? anyH5SpanMatch[1] : null,
+                updatedMatch: updatedMatch ? updatedMatch[1] : null
+            }
+        };
+
+        res.json(result);
+    } catch (err) {
+        console.error('FVT fund fetch error:', err);
+        res.status(500).json({ error: 'Fon verisi çekilemedi: ' + err.message });
     }
 });
 
