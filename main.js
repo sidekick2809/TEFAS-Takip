@@ -430,7 +430,7 @@ class TefasDataView {
                 ? '<svg class="fav-icon favorited" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
                 : '<svg class="fav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
 
-            const trophy1H = (typeof row[3] === 'number' && row[3] > 0.05) ? ' <span class="trophy-icon" title="1H % > 5%">🏆</span>' : '';
+            const trophy1H = (typeof row[3] === 'number' && row[3] > 0.05) ? ' <span class="trophy-icon" title="Haftanın Şampiyonları">🏆</span>' : '';
             tr.innerHTML = `
                 <td class="fav-col">
                     <button class="fav-btn" data-code="${code}" title="Favorilere Ekle/Çıkar">
@@ -871,7 +871,7 @@ class FVTDataView {
         this.tbody.innerHTML = '';
 
         if (data.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="14" class="empty-state">Veri bulunamadı.</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="13" class="empty-state">Veri bulunamadı.</td></tr>';
             return;
         }
 
@@ -898,7 +898,9 @@ class FVTDataView {
                     </button>
                 </td>
                 <td class="has-tooltip" data-tooltip="${row.fon_adi || ''}">
-                    <strong>${row.fon_kodu || ''}</strong>
+                    <a href="${linkUrl}" target="_blank" class="fund-code-link">
+                        <strong>${row.fon_kodu || ''}</strong>
+                    </a>
                     <div class="wrap-text unvan-text fund-name-sub">${row.fon_adi || ''}</div>
                 </td>
                 <td>${row.kategoriAdi || ''}</td>
@@ -912,7 +914,6 @@ class FVTDataView {
                 <td>${this.formatPercent(row.bes_yillik_getiri)}</td>
                 <td>${this.formatPercent(row.stopaj)}</td>
                 <td>${this.formatPercent(row.yonetim_ucret)}</td>
-                <td>${row.fonlink ? '<a href="' + linkUrl + '" target="_blank" class="fund-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>' : '-'}</td>
             `;
 
             // Add click handler for favorite button
@@ -998,7 +999,6 @@ class FVTDataView {
                     case 9: valA = a.bes_yillik_getiri; valB = b.bes_yillik_getiri; break;
                     case 10: valA = a.stopaj; valB = b.stopaj; break;
                     case 11: valA = a.yonetim_ucret; valB = b.yonetim_ucret; break;
-                    case 12: valA = a.fonlink; valB = b.fonlink; break;
                     default: valA = ''; valB = '';
                 }
 
@@ -1198,8 +1198,10 @@ function downloadXLS(data, headers, filename) {
 window.downloadCSV = downloadCSV;
 window.downloadXLS = downloadXLS;
 
+let sessionManualDates = null;
+
 function getFormattedDates() {
-    const manualDates = localStorage.getItem('tefasManualDates');
+    const manualDates = sessionManualDates;
     if (manualDates) {
         try {
             const parsed = JSON.parse(manualDates);
@@ -1310,18 +1312,30 @@ window.addEventListener('DOMContentLoaded', () => {
                 // Check if we have cached real-time data for this fund
                 const cachedFund = cachedData?.find(c => c.code === fund.fon_kodu);
                 let changeStr = 'Güncelle';
-                let changeClass = 'neutral';
+                let cardClass = 'neutral';
+                let iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>';
 
                 if (cachedFund && cachedFund.change !== null) {
                     const changeNum = parseFloat(cachedFund.change);
-                    changeClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
+                    cardClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
                     changeStr = (changeNum > 0 ? '+' : '') + changeNum.toFixed(2) + '%';
+
+                    if (changeNum > 0) {
+                        iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L20 20l-8-6-8 6Z"/></svg>';
+                    } else if (changeNum < 0) {
+                        iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22L4 4l8 6 8-6Z"/></svg>';
+                    }
                 }
 
+                card.classList.add(cardClass);
+
                 card.innerHTML = `
-                    <span class="fund-code">${fund.fon_kodu}</span>
-                    <span class="fund-change ${changeClass}">${changeStr}</span>
-                `;
+                <div class="fund-card-header">${fund.fon_kodu}</div>
+                <div class="fund-card-body">
+                    <span class="fund-arrow">${iconSvg}</span>
+                    <span class="fund-change">${changeStr}</span>
+                </div>
+            `;
 
                 fvtFavoritesList.appendChild(card);
             });
@@ -1353,20 +1367,34 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (!card) return;
 
                 const change = fund.change;
-                let changeClass = 'neutral';
+                let cardClass = 'neutral';
                 let changeStr = '--';
+                let iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>';
 
                 if (change !== null && change !== undefined) {
                     const changeNum = parseFloat(change);
-                    changeClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
+                    cardClass = changeNum > 0 ? 'positive' : changeNum < 0 ? 'negative' : 'neutral';
                     changeStr = (changeNum > 0 ? '+' : '') + changeNum.toFixed(2) + '%';
+
+                    if (changeNum > 0) {
+                        iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L20 20l-8-6-8 6Z"/></svg>';
+                    } else if (changeNum < 0) {
+                        iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22L4 4l8 6 8-6Z"/></svg>';
+                    }
                 } else {
                     changeStr = fund.error || 'Hata';
                 }
 
+                // Update card class
+                card.classList.remove('positive', 'negative', 'neutral');
+                card.classList.add(cardClass);
+
                 card.innerHTML = `
-                    <span class="fund-code">${fund.code}</span>
-                    <span class="fund-change ${changeClass}">${changeStr}</span>
+                    <div class="fund-card-header">${fund.code}</div>
+                    <div class="fund-card-body">
+                        <span class="fund-arrow">${iconSvg}</span>
+                        <span class="fund-change">${changeStr}</span>
+                    </div>
                 `;
             });
         } catch (err) {
@@ -1471,28 +1499,57 @@ document.addEventListener('mouseover', (e) => {
 });
 document.addEventListener('mouseout', (e) => { if (e.target.closest('.has-tooltip')) globalTooltip.classList.remove('visible'); });
 
-// Theme toggle
+// Theme Selection Menu
 const themeToggleBtn = document.getElementById('theme-toggle');
-const iconSun = document.getElementById('theme-icon-sun');
-const iconMoon = document.getElementById('theme-icon-moon');
-function updateThemeIcon(isLight) {
-    if (isLight) { iconMoon.style.display = 'none'; iconSun.style.display = 'block'; }
-    else { iconSun.style.display = 'none'; iconMoon.style.display = 'block'; }
-}
-if (document.documentElement.getAttribute('data-theme') === 'light') updateThemeIcon(true);
-themeToggleBtn.addEventListener('click', () => {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    if (isLight) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('tefasTheme', 'dark');
-        updateThemeIcon(false);
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('tefasTheme', 'light');
-        updateThemeIcon(true);
-    }
-    if (typeof renderDashboard === 'function' && document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard();
+const themeOptions = document.getElementById('theme-options');
+const themeOptionItems = document.querySelectorAll('.theme-option');
+
+// Initialize active theme in menu
+const currentTheme = localStorage.getItem('tefasTheme') || 'dark';
+document.documentElement.setAttribute('data-theme', currentTheme);
+themeOptionItems.forEach(opt => {
+    if (opt.dataset.theme === currentTheme) opt.classList.add('active');
+    else opt.classList.remove('active');
 });
+
+themeToggleBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themeOptions.classList.toggle('open');
+});
+
+themeOptionItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const theme = item.dataset.theme;
+        if (theme === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        localStorage.setItem('tefasTheme', theme);
+
+        // Update menu UI
+        themeOptionItems.forEach(opt => opt.classList.remove('active'));
+        item.classList.add('active');
+        themeOptions.classList.remove('open');
+
+        // Refresh dashboard if active
+        if (typeof renderDashboard === 'function' && document.getElementById('tab-dashboard').classList.contains('active')) {
+            renderDashboard();
+        }
+
+        if (typeof showStatus === 'function') {
+            showStatus(`Tema değiştirildi: ${item.querySelector('span:last-child').textContent}`);
+        }
+    });
+});
+
+// Close theme menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.theme-menu-container')) {
+        themeOptions?.classList.remove('open');
+    }
+});
+
 
 // Settings Modal
 const settingsBtn = document.getElementById('settings-btn');
@@ -1546,9 +1603,9 @@ settingsCloseBtn?.addEventListener('click', () => { settingsModal.style.display 
 settingsSaveBtn?.addEventListener('click', () => {
     const dates = { today: inputToday.value, target: inputTarget.value, seven: inputSeven.value };
     if (!dates.today || !dates.target || !dates.seven) { alert('Lütfen tüm tarihleri seçin.'); return; }
-    localStorage.setItem('tefasManualDates', JSON.stringify(dates));
+    sessionManualDates = dates;
     settingsModal.style.display = 'none';
-    showStatus('Tarih ayarları kaydedildi. Lütfen verileri güncelleyin.');
+    showStatus('Tarih ayarları güncellendi. Lütfen verileri güncelleyin.');
 });
 
 // Global Dropdown Toggles (Export Buttons)

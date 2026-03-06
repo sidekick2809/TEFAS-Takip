@@ -29,10 +29,13 @@ function getActiveFunds() {
     return Object.keys(aggregated).filter(code => aggregated[code] > 0.0001);
 }
 
+let sessionFlowToday = null;
+let sessionFlowYesterday = null;
+
 function getFlowDates() {
-    // Check for manual overrides in localStorage
-    const manualToday = localStorage.getItem('flowManualToday');
-    const manualYesterday = localStorage.getItem('flowManualYesterday');
+    // Check for manual overrides in session
+    const manualToday = sessionFlowToday;
+    const manualYesterday = sessionFlowYesterday;
 
     if (manualToday && manualYesterday) {
         // manualToday is already YYYY-MM-DD from input, 
@@ -297,10 +300,21 @@ if (refreshFlowBtn) {
 if (flowSettingsBtn) {
     flowSettingsBtn.addEventListener('click', () => {
         // Set current values to inputs
-        const currentToday = localStorage.getItem('flowManualToday');
-        const currentYesterday = localStorage.getItem('flowManualYesterday');
+        const currentToday = sessionFlowToday;
+        const currentYesterday = sessionFlowYesterday;
 
         if (currentToday) settingTodayInput.value = currentToday;
+        else {
+            // Set defaults if nothing in session
+            const d = new Date();
+            const f = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            settingTodayInput.value = f(d);
+
+            const yesterday = new Date(d);
+            if (d.getDay() === 1) yesterday.setDate(d.getDate() - 3);
+            else yesterday.setDate(d.getDate() - 1);
+            settingYesterdayInput.value = f(yesterday);
+        }
         if (currentYesterday) settingYesterdayInput.value = currentYesterday;
 
         flowSettingsModal.style.display = 'flex';
@@ -318,11 +332,11 @@ if (flowSettingsSaveBtn) {
         const valToday = settingTodayInput.value;
         const valYesterday = settingYesterdayInput.value;
 
-        if (valToday) localStorage.setItem('flowManualToday', valToday);
-        if (valYesterday) localStorage.setItem('flowManualYesterday', valYesterday);
+        if (valToday) sessionFlowToday = valToday;
+        if (valYesterday) sessionFlowYesterday = valYesterday;
 
         flowSettingsModal.style.display = 'none';
-        showStatusMessage('Tarih ayarları kaydedildi. Verileri güncelle butonuna basarak yeni tarihlerle veri çekebilirsiniz.', 'success');
+        showStatusMessage('Tarih ayarları güncellendi. Verileri güncelle butonuna basarak yeni tarihlerle veri çekebilirsiniz.', 'success');
     });
 }
 
@@ -384,7 +398,7 @@ async function fetchKapData() {
         }
 
         if (!result.data || result.data.length === 0) {
-            kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">' + (result.message || 'Belirtilen tarihler için KAP\'ta (YF) bildirimi bulunamadı.') + '</td></tr>';
+            kapBody.innerHTML = '<tr><td colspan="5" class="empty-state">' + (result.message || 'Belirtilen tarihler için KAP\'ta (YF) bildirimi bulunamadı.') + '</td></tr>';
             showStatusMessage(result.message || 'KAP verisi bulunamadı', 'info');
             return;
         }
@@ -407,7 +421,7 @@ function renderKapTable(data) {
     if (!kapBody) return;
 
     if (!data || data.length === 0) {
-        kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">Veri bulunamadı.</td></tr>';
+        kapBody.innerHTML = '<tr><td colspan="5" class="empty-state">Veri bulunamadı.</td></tr>';
         return;
     }
 
@@ -425,22 +439,15 @@ function renderKapTable(data) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
+                ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" class="fund-link">` : ''}
                 <strong>${escapeHtml(item.stockCode)}</strong>
+                ${item.url ? `</a>` : ''}
                 ${isInPortfolio ? '<span class="kap-badge" title="Portföyünüzde bu fon var!"><svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>' : ''}
             </td>
             <td>${escapeHtml(item.publishDate)}</td>
             <td title="${escapeHtml(item.title)}">${truncateText(item.title, 50)}</td>
             <td>${escapeHtml(item.companyTitle)}</td>
             <td>${escapeHtml(item.disclosureCategory)}</td>
-            <td>
-                ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" class="fund-link">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                    </svg>
-                </a>` : '-'}
-            </td>
         `;
         kapBody.appendChild(tr);
     });
@@ -463,7 +470,7 @@ async function clearKapData() {
         });
 
         if (response.ok) {
-            kapBody.innerHTML = '<tr><td colspan="6" class="empty-state">Veri yüklemek için "Verileri Çek" butonuna tıklayın.</td></tr>';
+            kapBody.innerHTML = '<tr><td colspan="5" class="empty-state">Veri yüklemek için "Verileri Çek" butonuna tıklayın.</td></tr>';
             showStatusMessage('KAP verileri temizlendi.', 'success');
         } else {
             throw new Error('Veriler temizlenemedi');

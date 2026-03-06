@@ -49,7 +49,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         const mainTitleEl = document.getElementById('main-title');
         if (breadcrumbEl) breadcrumbEl.textContent = tabName;
         if (mainTitleEl) {
-            if (target === 'tab-dashboard') mainTitleEl.textContent = 'Ana Dashboard';
+            if (target === 'tab-dashboard') mainTitleEl.textContent = 'Dashboard';
             else if (target === 'tab-veriler') mainTitleEl.textContent = 'FON Verileri';
             else if (target === 'tab-veriler-bes') mainTitleEl.textContent = 'BES Fonları';
             else if (target === 'tab-portfolio') mainTitleEl.textContent = 'FON İşlemleri';
@@ -203,7 +203,7 @@ function renderPortfolio() {
     }
 
     if (filteredPortfolio.length === 0) {
-        portfolioBody.innerHTML = `<tr><td colspan="10" class="empty-state">${filterText ? 'Arama sonucu bulunamadı.' : 'İşlem listeniz boş. Yukarıdan fon ekleyebilirsiniz.'}</td></tr>`;
+        portfolioBody.innerHTML = `<tr><td colspan="16" class="empty-state">${filterText ? 'Arama sonucu bulunamadı.' : 'İşlem listeniz boş. Yukarıdan fon ekleyebilirsiniz.'}</td></tr>`;
         updateSummary([], data);
         return;
     }
@@ -216,7 +216,7 @@ function renderPortfolio() {
     // --- Pre-calculate Realized Profit & Cumulative Totals ---
     // We need chronological order (A to Z) for cost and aggregate calculation
     const realizedProfits = {};
-    const statsById = {}; // { id: { rowNo, prevLots, cumLots, profit } }
+    const statsById = {}; // { id: { rowNo, prevLots, cumLots, profit, islemPara, oncekiMaliyet, satisDegeri, ortFiyat, cumCost, karYuzdesi } }
     const runningStats = {}; // { code: { lots, cost } }
 
     const chronological = [...portfolio].sort((a, b) => a.buyDate.localeCompare(b.buyDate) || a.id - b.id);
@@ -226,27 +226,49 @@ function renderPortfolio() {
         const stats = runningStats[e.code];
 
         const prevLots = stats.lots;
+        const prevCost = stats.cost;
+        const islemPara = e.lots * e.buyPrice;
         let profit = 0;
+        let satisDegeri = '-';
+        let ortFiyat = '-';
+        let cumCost = 0;
+        let karYuzdesi = '-';
 
         if (e.type === 'AL') {
+            // Buy: add to running totals
             stats.lots += e.lots;
-            stats.cost += e.lots * e.buyPrice;
+            stats.cost += islemPara;
+            cumCost = stats.cost;
             profit = 0;
         } else {
-            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
-            profit = (e.buyPrice - avg) * e.lots;
+            // Sell: calculate based on previous average
+            ortFiyat = prevLots > 0 ? (prevCost / prevLots) : 0;
+            satisDegeri = e.lots * ortFiyat;
+            profit = islemPara - satisDegeri;
 
-            // Adjust running total cost
+            // Update running totals
             stats.lots -= e.lots;
-            stats.cost -= e.lots * avg;
+            stats.cost -= satisDegeri;
             if (stats.lots <= 0) { stats.lots = 0; stats.cost = 0; }
+            cumCost = stats.cost;
+
+            // Calculate profit percentage
+            if (satisDegeri > 0) {
+                karYuzdesi = (profit / satisDegeri);
+            }
         }
 
         statsById[e.id] = {
             rowNo: index + 1,
             prevLots: prevLots,
             cumLots: stats.lots,
-            profit: profit
+            profit: profit,
+            islemPara: islemPara,
+            oncekiMaliyet: prevCost,
+            satisDegeri: satisDegeri,
+            ortFiyat: ortFiyat,
+            cumCost: cumCost,
+            karYuzdesi: karYuzdesi
         };
     });
 
@@ -264,12 +286,19 @@ function renderPortfolio() {
         </td>
         <td><span class="type-badge ${entry.type}">${entry.type === 'AL' ? 'ALIŞ' : 'SATIŞ'}</span></td>
         <td>${entry.lots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td>${fmtNum(entry.buyPrice, 4)}</td>
+        <td class="val-neutral">₺${fmtNum(stats.islemPara)}</td>
+        <td class="val-neutral">₺${fmtNum(stats.oncekiMaliyet)}</td>
         <td class="val-neutral">${stats.prevLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
         <td class="val-neutral"><strong>${stats.cumLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong></td>
-        <td>${fmtNum(entry.buyPrice, 4)}</td>
-        <td class="val-neutral">₺${fmtNum(buyValue)}</td>
+        <td>${typeof stats.ortFiyat === 'number' ? fmtNum(stats.ortFiyat, 4) : stats.ortFiyat}</td>
+        <td>${typeof stats.satisDegeri === 'number' ? '₺' + fmtNum(stats.satisDegeri) : stats.satisDegeri}</td>
+        <td class="val-neutral">₺${fmtNum(stats.cumCost)}</td>
         <td class="${stats.profit > 0 ? 'val-up' : stats.profit < 0 ? 'val-down' : 'val-neutral'}">
             ${entry.type === 'SAT' ? '₺' + fmtNum(stats.profit) : '0'}
+        </td>
+        <td class="${typeof stats.karYuzdesi === 'number' ? (stats.karYuzdesi > 0 ? 'val-up' : stats.karYuzdesi < 0 ? 'val-down' : 'val-neutral') : 'val-neutral'}">
+            ${typeof stats.karYuzdesi === 'number' ? '%' + fmtNum(stats.karYuzdesi * 100, 2) : stats.karYuzdesi}
         </td>
         <td>${entry.buyDate}</td>
         <td>
@@ -816,7 +845,7 @@ function updateSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price1 > 0) {
+                if (price1 > 0 && currentPrice > 0) {
                     dailyChangeTl += GD - (netLots * price1);
                 }
             }
@@ -837,7 +866,7 @@ function updateSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price7 > 0) {
+                if (price7 > 0 && currentPrice > 0) {
                     weeklyChangeTl += GD - (netLots * price7);
                 }
             }
@@ -1718,7 +1747,7 @@ function renderBesPortfolio() {
     }
 
     if (filteredPortfolio.length === 0) {
-        besPortfolioBody.innerHTML = `<tr><td colspan="11" class="empty-state">${filterText ? 'Arama sonucu bulunamadı.' : 'BES işlem listeniz boş. Yukarıdan fon ekleyebilirsiniz.'}</td></tr>`;
+        besPortfolioBody.innerHTML = `<tr><td colspan="16" class="empty-state">${filterText ? 'Arama sonucu bulunamadı.' : 'BES işlem listeniz boş. Yukarıdan fon ekleyebilirsiniz.'}</td></tr>`;
         updateBesSummary([], data);
         return;
     }
@@ -1739,26 +1768,49 @@ function renderBesPortfolio() {
         const stats = runningStats[e.code];
 
         const prevLots = stats.lots;
+        const prevCost = stats.cost;
+        const islemPara = e.lots * e.buyPrice;
         let profit = 0;
+        let satisDegeri = '-';
+        let ortFiyat = '-';
+        let cumCost = 0;
+        let karYuzdesi = '-';
 
         if (e.type === 'AL') {
+            // Buy: add to running totals
             stats.lots += e.lots;
-            stats.cost += e.lots * e.buyPrice;
+            stats.cost += islemPara;
+            cumCost = stats.cost;
             profit = 0;
         } else {
-            const avg = stats.lots > 0 ? (stats.cost / stats.lots) : 0;
-            profit = (e.buyPrice - avg) * e.lots;
+            // Sell: calculate based on previous average
+            ortFiyat = prevLots > 0 ? (prevCost / prevLots) : 0;
+            satisDegeri = e.lots * ortFiyat;
+            profit = islemPara - satisDegeri;
 
+            // Update running totals
             stats.lots -= e.lots;
-            stats.cost -= e.lots * avg;
+            stats.cost -= satisDegeri;
             if (stats.lots <= 0) { stats.lots = 0; stats.cost = 0; }
+            cumCost = stats.cost;
+
+            // Calculate profit percentage
+            if (satisDegeri > 0) {
+                karYuzdesi = (profit / satisDegeri);
+            }
         }
 
         statsById[e.id] = {
             rowNo: index + 1,
             prevLots: prevLots,
             cumLots: stats.lots,
-            profit: profit
+            profit: profit,
+            islemPara: islemPara,
+            oncekiMaliyet: prevCost,
+            satisDegeri: satisDegeri,
+            ortFiyat: ortFiyat,
+            cumCost: cumCost,
+            karYuzdesi: karYuzdesi
         };
     });
 
@@ -1776,12 +1828,19 @@ function renderBesPortfolio() {
         </td>
         <td><span class="type-badge ${entry.type}">${entry.type === 'AL' ? 'ALIŞ' : 'SATIŞ'}</span></td>
         <td>${entry.lots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td>${fmtNum(entry.buyPrice, 4)}</td>
+        <td class="val-neutral">₺${fmtNum(stats.islemPara)}</td>
+        <td class="val-neutral">₺${fmtNum(stats.oncekiMaliyet)}</td>
         <td class="val-neutral">${stats.prevLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
         <td class="val-neutral"><strong>${stats.cumLots.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong></td>
-        <td>${fmtNum(entry.buyPrice, 4)}</td>
-        <td class="val-neutral">₺${fmtNum(buyValue)}</td>
+        <td>${typeof stats.ortFiyat === 'number' ? fmtNum(stats.ortFiyat, 4) : stats.ortFiyat}</td>
+        <td>${typeof stats.satisDegeri === 'number' ? '₺' + fmtNum(stats.satisDegeri) : stats.satisDegeri}</td>
+        <td class="val-neutral">₺${fmtNum(stats.cumCost)}</td>
         <td class="${stats.profit > 0 ? 'val-up' : stats.profit < 0 ? 'val-down' : 'val-neutral'}">
             ${entry.type === 'SAT' ? '₺' + fmtNum(stats.profit) : '0'}
+        </td>
+        <td class="${typeof stats.karYuzdesi === 'number' ? (stats.karYuzdesi > 0 ? 'val-up' : stats.karYuzdesi < 0 ? 'val-down' : 'val-neutral') : 'val-neutral'}">
+            ${typeof stats.karYuzdesi === 'number' ? '%' + fmtNum(stats.karYuzdesi * 100, 2) : stats.karYuzdesi}
         </td>
         <td>${entry.buyDate}</td>
         <td>
@@ -1975,7 +2034,7 @@ function updateBesSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price1 > 0) {
+                if (price1 > 0 && currentPrice > 0) {
                     dailyChangeTl += GD - (netLots * price1);
                 }
             }
@@ -1998,7 +2057,7 @@ function updateBesSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price7 > 0) {
+                if (price7 > 0 && currentPrice > 0) {
                     weeklyChangeTl += GD - (netLots * price7);
                 }
             }
@@ -2307,7 +2366,7 @@ function updateFonSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price1 = liveRow[16] || 0; // FIYAT1 (1 day ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price1 > 0) {
+                if (price1 > 0 && currentPrice > 0) {
                     dailyChangeTl += GD - (netLots * price1);
                 }
             }
@@ -2330,7 +2389,7 @@ function updateFonSummary(rows, data) {
                 const currentPrice = liveRow[15] || 0; // FIYAT (current)
                 const price7 = liveRow[17] || 0; // FIYAT7 (7 days ago)
                 const GD = netLots * currentPrice; // Güncel Değer
-                if (price7 > 0) {
+                if (price7 > 0 && currentPrice > 0) {
                     weeklyChangeTl += GD - (netLots * price7);
                 }
             }
