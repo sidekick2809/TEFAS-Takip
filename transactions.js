@@ -61,9 +61,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
         // Update UI
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
 
         btn.classList.add('active');
+
+        // Also activate the corresponding mobile nav button if exists
+        const correspondingMobileBtn = document.querySelector(`.mobile-nav-btn[data-tab="${target}"]`);
+        if (correspondingMobileBtn) correspondingMobileBtn.classList.add('active');
+
         document.getElementById(target).classList.add('active');
 
         if (target === 'tab-portfolio') {
@@ -81,6 +87,70 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         if (sidebar && window.innerWidth <= 1200) sidebar.classList.remove('open');
     });
 });
+
+// --- Mobile Bottom Navigation ---
+document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        const tabName = btn.dataset.tooltip || btn.textContent.trim();
+
+        // Update breadcrumb and title
+        const breadcrumbEl = document.getElementById('current-tab-name');
+        const mainTitleEl = document.getElementById('main-title');
+        if (breadcrumbEl) breadcrumbEl.textContent = tabName;
+        if (mainTitleEl) {
+            if (target === 'tab-dashboard') mainTitleEl.textContent = 'Dashboard';
+            else if (target === 'tab-veriler') mainTitleEl.textContent = 'FON Verileri';
+            else if (target === 'tab-veriler-bes') mainTitleEl.textContent = 'BES Fonları';
+            else if (target === 'tab-portfolio') mainTitleEl.textContent = 'FON İşlemleri';
+            else if (target === 'tab-bes-portfolio') mainTitleEl.textContent = 'BES İşlemleri';
+            else if (target === 'tab-flow') mainTitleEl.textContent = 'Para Akışı Analizi';
+            else if (target === 'tab-kap') mainTitleEl.textContent = 'KAP Bildirimleri';
+            else if (target === 'tab-fvt') mainTitleEl.textContent = 'FVT Data';
+        }
+
+        // Update UI - both sidebar and mobile nav
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+        btn.classList.add('active');
+
+        // Also activate the corresponding sidebar button if exists
+        const correspondingSidebarBtn = document.querySelector(`.tab-btn[data-tab="${target}"]`);
+        if (correspondingSidebarBtn) correspondingSidebarBtn.classList.add('active');
+
+        document.getElementById(target).classList.add('active');
+
+        if (target === 'tab-portfolio') {
+            renderPortfolio();
+        } else if (target === 'tab-bes-portfolio') {
+            renderBesPortfolio();
+        } else if (target === 'tab-dashboard') {
+            renderDashboard();
+        } else if (target === 'tab-flow') {
+            if (window.renderFlow) window.renderFlow();
+        }
+
+        // Close mobile sidebar if open
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar && window.innerWidth <= 1200) sidebar.classList.remove('open');
+    });
+});
+
+// --- Function to sync both navs when tab changes from sidebar ---
+function syncNavigation(targetTab) {
+    // Remove active from all
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+
+    // Add active to matching buttons
+    const sidebarBtn = document.querySelector(`.tab-btn[data-tab="${targetTab}"]`);
+    const mobileBtn = document.querySelector(`.mobile-nav-btn[data-tab="${targetTab}"]`);
+
+    if (sidebarBtn) sidebarBtn.classList.add('active');
+    if (mobileBtn) mobileBtn.classList.add('active');
+}
 
 // --- Sidebar Toggle ---
 const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -1603,6 +1673,8 @@ const BES_PORTFOLIO_KEY = 'tefasBesPortfolio';
 
 // --- BES State ---
 let besPortfolio = [];
+let besPortfolios = []; // Portfolio metadata list
+let selectedBesPortfolioId = 1; // Currently selected portfolio ID
 
 // --- BES DOM elements ---
 const besFundSearch = document.getElementById('bes-fund-search');
@@ -1613,6 +1685,201 @@ const besBuyDate = document.getElementById('bes-buy-date');
 const besAddBtn = document.getElementById('bes-add-btn');
 const besPortfolioBody = document.getElementById('bes-portfolio-body');
 const besTransactionsFilter = document.getElementById('bes-transactions-filter');
+
+// Portfolio selector elements
+const besPortfolioSelect = document.getElementById('bes-portfolio-select');
+const besNewPortfolioBtn = document.getElementById('bes-new-portfolio-btn');
+const besPortfolioEditBtn = document.getElementById('bes-portfolio-edit-btn');
+const besPortfolioDeleteBtn = document.getElementById('bes-portfolio-delete-btn');
+const besPortfolioModal = document.getElementById('bes-portfolio-modal');
+const besPortfolioModalTitle = document.getElementById('bes-portfolio-modal-title');
+const besPortfolioNameInput = document.getElementById('bes-portfolio-name-input');
+const besPortfolioModalCancel = document.getElementById('bes-portfolio-modal-cancel');
+const besPortfolioModalSave = document.getElementById('bes-portfolio-modal-save');
+
+let isEditingPortfolio = false;
+
+// --- Load BES Portfolio Metadata ---
+async function loadBesPortfolios() {
+    try {
+        const res = await fetch('/api/bes-portfolios');
+        if (res.ok) {
+            besPortfolios = await res.json();
+            renderBesPortfolioSelect();
+        }
+    } catch (err) {
+        console.error('Failed to load BES portfolios:', err);
+    }
+}
+
+// --- Render Portfolio Select Dropdown ---
+function renderBesPortfolioSelect() {
+    if (!besPortfolioSelect) return;
+
+    besPortfolioSelect.innerHTML = '';
+    besPortfolios.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.name;
+        if (p.id === selectedBesPortfolioId) {
+            option.selected = true;
+        }
+        besPortfolioSelect.appendChild(option);
+    });
+
+    // Show/hide edit/delete buttons based on whether it's default portfolio
+    const isDefault = selectedBesPortfolioId === 1;
+    if (besPortfolioEditBtn) besPortfolioEditBtn.style.display = isDefault ? 'none' : 'inline-flex';
+    if (besPortfolioDeleteBtn) besPortfolioDeleteBtn.style.display = isDefault ? 'none' : 'inline-flex';
+}
+
+// --- Portfolio Selection Change ---
+if (besPortfolioSelect) {
+    besPortfolioSelect.addEventListener('change', async (e) => {
+        selectedBesPortfolioId = parseInt(e.target.value);
+        await loadBesPortfolioForPortfolio(selectedBesPortfolioId);
+        renderBesPortfolioSelect(); // Update button visibility
+    });
+}
+
+// --- New Portfolio Button ---
+if (besNewPortfolioBtn) {
+    besNewPortfolioBtn.addEventListener('click', () => {
+        isEditingPortfolio = false;
+        besPortfolioModalTitle.textContent = 'Yeni Portfolio';
+        besPortfolioNameInput.value = '';
+        besPortfolioModal.style.display = 'flex';
+        besPortfolioNameInput.focus();
+    });
+}
+
+// --- Edit Portfolio Button ---
+if (besPortfolioEditBtn) {
+    besPortfolioEditBtn.addEventListener('click', () => {
+        isEditingPortfolio = true;
+        const currentPortfolio = besPortfolios.find(p => p.id === selectedBesPortfolioId);
+        if (currentPortfolio) {
+            besPortfolioModalTitle.textContent = 'Portfolio Düzenle';
+            besPortfolioNameInput.value = currentPortfolio.name;
+            besPortfolioModal.style.display = 'flex';
+            besPortfolioNameInput.focus();
+        }
+    });
+}
+
+// --- Delete Portfolio Button ---
+if (besPortfolioDeleteBtn) {
+    besPortfolioDeleteBtn.addEventListener('click', async () => {
+        const currentPortfolio = besPortfolios.find(p => p.id === selectedBesPortfolioId);
+        if (!currentPortfolio) return;
+
+        if (!confirm(`"${currentPortfolio.name}" portfolio silinsin mi? Tüm fonlar "Varsayılan" portfolioya taşınacaktır.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/bes-portfolios/${selectedBesPortfolioId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                selectedBesPortfolioId = 1;
+                await loadBesPortfolios();
+                await loadBesPortfolioForPortfolio(selectedBesPortfolioId);
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Portfolio silinemedi');
+            }
+        } catch (err) {
+            console.error('Failed to delete portfolio:', err);
+            alert('Portfolio silinirken hata oluştu');
+        }
+    });
+}
+
+// --- Modal Cancel ---
+if (besPortfolioModalCancel) {
+    besPortfolioModalCancel.addEventListener('click', () => {
+        besPortfolioModal.style.display = 'none';
+    });
+}
+
+// --- Modal Save ---
+if (besPortfolioModalSave) {
+    besPortfolioModalSave.addEventListener('click', async () => {
+        const name = besPortfolioNameInput.value.trim();
+        if (!name) {
+            alert('Lütfen bir portfolio adı girin');
+            return;
+        }
+
+        try {
+            if (isEditingPortfolio) {
+                // Update existing portfolio
+                const res = await fetch(`/api/bes-portfolios/${selectedBesPortfolioId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (res.ok) {
+                    await loadBesPortfolios();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Portfolio güncellenemedi');
+                    return;
+                }
+            } else {
+                // Create new portfolio
+                const res = await fetch('/api/bes-portfolios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    selectedBesPortfolioId = data.id;
+                    await loadBesPortfolios();
+                    await loadBesPortfolioForPortfolio(selectedBesPortfolioId);
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Portfolio eklenemedi');
+                    return;
+                }
+            }
+
+            besPortfolioModal.style.display = 'none';
+        } catch (err) {
+            console.error('Failed to save portfolio:', err);
+            alert('Portfolio kaydedilirken hata oluştu');
+        }
+    });
+}
+
+// Close modal on outside click
+if (besPortfolioModal) {
+    besPortfolioModal.addEventListener('click', (e) => {
+        if (e.target === besPortfolioModal) {
+            besPortfolioModal.style.display = 'none';
+        }
+    });
+}
+
+// --- Load BES Portfolio for specific portfolio ID ---
+async function loadBesPortfolioForPortfolio(portfolioId) {
+    try {
+        const res = await fetch(`/api/bes-portfolio/${portfolioId}`);
+        if (res.ok) {
+            besPortfolio = await res.json();
+            if (document.getElementById('tab-bes-portfolio').classList.contains('active')) {
+                renderBesPortfolio();
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load BES portfolio:', err);
+    }
+}
 
 // Default buy date to today
 besBuyDate.value = new Date().toISOString().split('T')[0];
@@ -1711,7 +1978,8 @@ besAddBtn.addEventListener('click', async () => {
         lots,
         buyPrice,
         buyDate,
-        type // AL or SAT
+        type, // AL or SAT
+        portfolioId: selectedBesPortfolioId
     };
 
     besPortfolio.push(entry);
@@ -1940,7 +2208,8 @@ besTransactionsFilter.addEventListener('input', renderBesPortfolio);
 
 // --- Initialize BES Portfolio ---
 async function initBesPortfolio() {
-    await loadBesPortfolio();
+    await loadBesPortfolios();
+    await loadBesPortfolioForPortfolio(selectedBesPortfolioId);
     if (document.getElementById('tab-bes-portfolio').classList.contains('active')) {
         renderBesPortfolio();
     }

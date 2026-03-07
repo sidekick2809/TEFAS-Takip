@@ -29,6 +29,8 @@ class TefasDataView {
 
         // Favorites
         this.favorites = new Set();
+        this.favFilterActive = false;
+        this.favFilterBtn = document.getElementById(config.favFilterBtnId || (this.prefix ? 'fav-filter-btn-' + this.prefix : 'fav-filter-btn'));
 
         // State
         this.fullData = [];
@@ -96,6 +98,13 @@ class TefasDataView {
         // Load favorites from server
         this.loadFavorites();
 
+        // Favorite filter button
+        this.favFilterBtn?.addEventListener('click', () => {
+            this.favFilterActive = !this.favFilterActive;
+            this.favFilterBtn?.classList.toggle('active', this.favFilterActive);
+            this.applyFilters();
+        });
+
         // Local Storage Load
         this.loadFromStorage();
     }
@@ -139,8 +148,13 @@ class TefasDataView {
                 });
                 this.favorites.add(code);
             }
-            // Re-render table to update heart icons
-            this.renderTable(this.currentData);
+            // Re-apply filters if favorite filter is active
+            if (this.favFilterActive) {
+                this.applyFilters();
+            } else {
+                // Just re-render to update heart icons
+                this.renderTable(this.currentData);
+            }
         } catch (err) {
             console.error('Favori güncellenemedi:', err);
         }
@@ -614,7 +628,12 @@ class TefasDataView {
             let matchesStatus = true;
             if (statusVal === 'EVET') matchesStatus = (row[14] === 'EVET');
             else if (statusVal === 'HAYIR') matchesStatus = (row[14] !== 'EVET');
-            return matchesTur && matchesTurc && matchesSirket && matchesStatus;
+
+            // Filter by favorites
+            const kod = row[0];
+            const matchesFav = !this.favFilterActive || this.favorites.has(kod);
+
+            return matchesTur && matchesTurc && matchesSirket && matchesStatus && matchesFav;
         });
         this.renderTable(this.currentData);
     }
@@ -625,6 +644,8 @@ class TefasDataView {
         this.selectedSirkets.clear();
         this.searchTerm = '';
         if (this.searchInput) this.searchInput.value = '';
+        this.favFilterActive = false;
+        if (this.favFilterBtn) this.favFilterBtn.classList.remove('active');
         this.initFilters();
         if (this.tefasStatusFilter) this.tefasStatusFilter.value = 'EVET';
         this.applyFilters();
@@ -668,6 +689,8 @@ class FVTDataView {
 
         // Favorites
         this.favorites = new Set();
+        this.favFilterActive = false;
+        this.favFilterBtn = document.getElementById(config.favFilterBtnId || 'fav-filter-btn-fvt');
 
         // State
         this.fullData = [];
@@ -721,6 +744,13 @@ class FVTDataView {
 
         // Load favorites from server
         this.loadFavorites();
+
+        // Favorite filter button
+        this.favFilterBtn?.addEventListener('click', () => {
+            this.favFilterActive = !this.favFilterActive;
+            this.favFilterBtn?.classList.toggle('active', this.favFilterActive);
+            this.applyFilters();
+        });
 
         // Local Storage Load
         this.loadFromStorage();
@@ -1112,7 +1142,11 @@ class FVTDataView {
                 return false;
             }
 
-            return true;
+            // Filter by favorites
+            const kod = row.fon_kodu;
+            const matchesFav = !this.favFilterActive || this.favorites.has(kod);
+
+            return matchesFav;
         });
 
         this.renderTable(this.currentData);
@@ -1123,6 +1157,8 @@ class FVTDataView {
         this.selectedSirkets.clear();
         this.searchTerm = '';
         if (this.searchInput) this.searchInput.value = '';
+        this.favFilterActive = false;
+        if (this.favFilterBtn) this.favFilterBtn.classList.remove('active');
         this.initFilters();
         this.applyFilters();
     }
@@ -1234,7 +1270,7 @@ window.addEventListener('DOMContentLoaded', () => {
         tableId: 'data-table', applyFilterBtnId: 'apply-filter-btn', resetFilterBtnId: 'reset-filter-btn',
         tefasStatusFilterId: 'tefas-status-filter', turSelectId: 'tur-select',
         turcSelectId: 'turc-select', sirketSelectId: 'sirket-select',
-        searchInputId: 'search-input'
+        searchInputId: 'search-input', favFilterBtnId: 'fav-filter-btn'
     });
 
     besView = new TefasDataView({
@@ -1245,7 +1281,7 @@ window.addEventListener('DOMContentLoaded', () => {
         tableId: 'data-table-bes', applyFilterBtnId: 'apply-filter-btn-bes', resetFilterBtnId: 'reset-filter-btn-bes',
         tefasStatusFilterId: 'tefas-status-filter-bes', turSelectId: 'tur-select-bes',
         turcSelectId: 'turc-select-bes', sirketSelectId: 'sirket-select-bes',
-        searchInputId: 'search-input-bes'
+        searchInputId: 'search-input-bes', favFilterBtnId: 'fav-filter-btn-bes'
     });
 
     fvtView = new FVTDataView({
@@ -1254,7 +1290,7 @@ window.addEventListener('DOMContentLoaded', () => {
         tableId: 'fvt-table', tableContainerId: 'fvt-table-container',
         applyFilterBtnId: 'apply-fvt-filter-btn', resetFilterBtnId: 'reset-fvt-filter-btn',
         kategoriSelectId: 'fvt-kategori-select', sirketSelectId: 'fvt-sirket-select',
-        searchInputId: 'fvt-search-input'
+        searchInputId: 'fvt-search-input', favFilterBtnId: 'fav-filter-btn-fvt'
     });
 
     // FVT Favorites Section - Load and display favorites with real-time data

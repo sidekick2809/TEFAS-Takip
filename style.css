@@ -207,6 +207,38 @@ th.fav-col {
   cursor: pointer;
 }
 
+/* Favorite Filter Button */
+.fav-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+}
+
+.fav-filter-btn:hover {
+  background: var(--border-color);
+}
+
+.fav-filter-icon {
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.fav-filter-btn.active .fav-filter-icon {
+  fill: #ee5d50;
+  color: #ee5d50;
+}
+
+.fav-filter-btn:hover .fav-filter-icon {
+  color: #ee5d50;
+}
+
+.fav-filter-btn.active:hover .fav-filter-icon {
+  transform: scale(1.1);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -2105,5 +2137,476 @@ th.sortable.sort-desc::after {
 
   .sidebar-btn.active::after {
     right: 0;
+  }
+}
+
+/* === BES Portfolio Selector Styles === */
+.bes-portfolio-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bes-portfolio-header .form-input {
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.bes-portfolio-header .icon-btn {
+  padding: 0.4rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.bes-portfolio-header .icon-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
+}
+
+.bes-portfolio-header .icon-btn[title="Sil"] {
+  color: #dc3545;
+}
+
+.bes-portfolio-header .icon-btn[title="Sil"]:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+/* === Modal Styles === */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  padding: 1.5rem;
+  border-radius: 12px;
+  min-width: 300px;
+  max-width: 90%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.2s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  color: var(--text-primary);
+}
+
+.modal-content .form-input {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.modal-content .form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+/* ============================================
+   MOBILE BOTTOM NAVIGATION BAR
+   ============================================ */
+
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  padding: 0.5rem 0.25rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 9999;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  min-width: 48px;
+  min-height: 56px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.mobile-icon-wrapper svg {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.mobile-nav-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+/* Active state */
+.mobile-nav-btn.active .mobile-icon-wrapper {
+  background: rgba(117, 81, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.mobile-nav-btn.active .mobile-icon-wrapper svg {
+  color: var(--primary);
+}
+
+.mobile-nav-btn.active .mobile-nav-label {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Hover/Touch state */
+.mobile-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-nav-btn:active .mobile-icon-wrapper {
+  transform: scale(0.92);
+}
+
+/* Icon color variations for different sections */
+.mobile-nav-btn[data-tab="tab-dashboard"] .mobile-icon-wrapper svg {
+  color: var(--icon-dash);
+}
+
+.mobile-nav-btn[data-tab="tab-veriler"] .mobile-icon-wrapper svg {
+  color: var(--icon-funds);
+}
+
+.mobile-nav-btn[data-tab="tab-veriler-bes"] .mobile-icon-wrapper svg {
+  color: var(--icon-bes);
+}
+
+.mobile-nav-btn[data-tab="tab-portfolio"] .mobile-icon-wrapper svg {
+  color: var(--icon-portfolio);
+}
+
+.mobile-nav-btn[data-tab="tab-bes-portfolio"] .mobile-icon-wrapper svg {
+  color: var(--icon-bes-port);
+}
+
+.mobile-nav-btn[data-tab="tab-flow"] .mobile-icon-wrapper svg {
+  color: var(--icon-flow);
+}
+
+.mobile-nav-btn[data-tab="tab-kap"] .mobile-icon-wrapper svg {
+  color: var(--icon-kap);
+}
+
+/* Active state with specific colors */
+.mobile-nav-btn.active[data-tab="tab-dashboard"] .mobile-icon-wrapper svg {
+  color: var(--icon-dash);
+}
+
+.mobile-nav-btn.active[data-tab="tab-veriler"] .mobile-icon-wrapper svg {
+  color: var(--icon-funds);
+}
+
+.mobile-nav-btn.active[data-tab="tab-veriler-bes"] .mobile-icon-wrapper svg {
+  color: var(--icon-bes);
+}
+
+.mobile-nav-btn.active[data-tab="tab-portfolio"] .mobile-icon-wrapper svg {
+  color: var(--icon-portfolio);
+}
+
+.mobile-nav-btn.active[data-tab="tab-bes-portfolio"] .mobile-icon-wrapper svg {
+  color: var(--icon-bes-port);
+}
+
+.mobile-nav-btn.active[data-tab="tab-flow"] .mobile-icon-wrapper svg {
+  color: var(--icon-flow);
+}
+
+.mobile-nav-btn.active[data-tab="tab-kap"] .mobile-icon-wrapper svg {
+  color: var(--icon-kap);
+}
+
+.mobile-nav-btn.active[data-tab="tab-dashboard"] .mobile-icon-wrapper {
+  background: rgba(67, 24, 255, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-veriler"] .mobile-icon-wrapper {
+  background: rgba(5, 205, 153, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-veriler-bes"] .mobile-icon-wrapper {
+  background: rgba(255, 181, 71, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-portfolio"] .mobile-icon-wrapper {
+  background: rgba(117, 81, 255, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-bes-portfolio"] .mobile-icon-wrapper {
+  background: rgba(238, 93, 80, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-flow"] .mobile-icon-wrapper {
+  background: rgba(31, 184, 208, 0.15);
+}
+
+.mobile-nav-btn.active[data-tab="tab-kap"] .mobile-icon-wrapper {
+  background: rgba(166, 60, 60, 0.2);
+}
+
+/* Notification badge for KAP */
+.mobile-nav-btn[data-tab="tab-kap"] .mobile-icon-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: var(--danger);
+  border-radius: 50%;
+  display: none;
+}
+
+.mobile-nav-btn[data-tab="tab-kap"].has-notification .mobile-icon-wrapper::after {
+  display: block;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE STYLES (max-width: 768px)
+   ============================================ */
+
+@media (max-width: 768px) {
+
+  /* Show bottom navigation */
+  .mobile-bottom-nav {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    height: auto;
+    min-height: 65px;
+  }
+
+  /* Hide sidebar completely on mobile */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Adjust main content for mobile */
+  .main-content {
+    margin-left: 0 !important;
+    max-width: 100% !important;
+    padding: 1rem 0.75rem !important;
+    padding-bottom: 5rem !important;
+    /* Space for bottom nav */
+  }
+
+  /* Adjust top bar for mobile */
+  .top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .page-title-group {
+    width: 100%;
+  }
+
+  .page-title-group h2 {
+    font-size: 1.25rem;
+  }
+
+  .header-minimal {
+    width: 100%;
+    justify-content: flex-end;
+    padding: 0.4rem 0.5rem;
+  }
+
+  /* Hide sidebar toggle button on mobile */
+  .sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  /* Adjust summary cards for mobile */
+  .portfolio-summary {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  .summary-card {
+    padding: 0.75rem !important;
+  }
+
+  .summary-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+
+  .summary-label {
+    font-size: 0.7rem !important;
+  }
+
+  .summary-value {
+    font-size: 0.9rem !important;
+  }
+
+  /* Adjust cards for mobile */
+  .card {
+    padding: 1rem !important;
+    border-radius: 16px !important;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .card-title {
+    font-size: 1rem !important;
+  }
+
+  /* Adjust tables for mobile */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 0.8rem !important;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.4rem !important;
+  }
+
+  /* Adjust forms for mobile */
+  .form-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .form-label {
+    font-size: 0.85rem;
+  }
+
+  .form-input,
+  .form-select {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  /* Adjust buttons for mobile */
+  .btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  /* Adjust charts for mobile */
+  .chart-container {
+    height: 250px !important;
+  }
+
+  /* Modal adjustments */
+  .modal-content {
+    width: 95% !important;
+    padding: 1rem !important;
+    margin: 0.5rem !important;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 400px) {
+  .mobile-nav-label {
+    font-size: 0.55rem;
+  }
+
+  .mobile-icon-wrapper {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mobile-icon-wrapper svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .portfolio-summary {
+    grid-template-columns: 1fr 1fr !important;
   }
 }

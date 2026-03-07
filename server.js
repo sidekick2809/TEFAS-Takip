@@ -52,9 +52,39 @@ db.exec(`
         buyDate   TEXT,
         type      TEXT,
         note      TEXT,
+        portfolioId INTEGER DEFAULT 1,
         createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     )
 `);
+
+// Create BES portfolio metadata table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS bes_portfolio_metadata (
+        id        INTEGER PRIMARY KEY,
+        name      TEXT NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
+// Migration: Add portfolioId column if it doesn't exist
+try {
+    db.exec("ALTER TABLE bes_portfolio ADD COLUMN portfolioId INTEGER DEFAULT 1");
+} catch (e) {
+    // Column might already exist or table is new, ignore error
+}
+
+// Migration: Create default portfolio if none exists
+const portfolioCount = db.prepare('SELECT COUNT(*) as cnt FROM bes_portfolio_metadata').get();
+if (portfolioCount.cnt === 0) {
+    db.prepare('INSERT INTO bes_portfolio_metadata (id, name) VALUES (1, ?)').run('Varsayılan');
+}
+
+// Migration: Set portfolioId = 1 for existing rows that have NULL portfolioId
+try {
+    db.exec("UPDATE bes_portfolio SET portfolioId = 1 WHERE portfolioId IS NULL OR portfolioId = 0");
+} catch (e) {
+    // Ignore if column doesn't exist or other error
+}
 
 // Create FVT data table if not exists
 db.exec(`
@@ -274,11 +304,16 @@ app.post('/api/bes-portfolio', (req, res) => {
         if (!Array.isArray(rows)) {
             return res.status(400).json({ error: 'Geçersiz veri formatı' });
         }
+
+        // Get portfolioId from first row, default to 1
+        const portfolioId = rows.length > 0 && rows[0].portfolioId ? rows[0].portfolioId : 1;
+
         const replace = db.transaction((data) => {
-            db.prepare('DELETE FROM bes_portfolio').run();
+            // Delete only rows for this portfolio
+            db.prepare('DELETE FROM bes_portfolio WHERE portfolioId = ?').run(portfolioId);
             const insert = db.prepare(`
-                INSERT INTO bes_portfolio (id, code, name, lots, buyPrice, buyDate, type, note)
-                VALUES (@id, @code, @name, @lots, @buyPrice, @buyDate, @type, @note)
+                INSERT INTO bes_portfolio (id, code, name, lots, buyPrice, buyDate, type, note, portfolioId)
+                VALUES (@id, @code, @name, @lots, @buyPrice, @buyDate, @type, @note, @portfolioId)
             `);
             for (const row of data) {
                 insert.run({
@@ -289,7 +324,8 @@ app.post('/api/bes-portfolio', (req, res) => {
                     buyPrice: row.buyPrice ?? null,
                     buyDate: row.buyDate ?? null,
                     type: row.type ?? null,
-                    note: row.note ?? null
+                    note: row.note ?? null,
+                    portfolioId: portfolioId
                 });
             }
         });
@@ -297,6 +333,83 @@ app.post('/api/bes-portfolio', (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'BES verisi kaydedilemedi' });
+    }
+});
+
+// API: BES Portfolio Metadata - Get all
+app.get('/api/bes-portfolios', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM bes_portfolio_metadata ORDER BY id').all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Portfolio listesi okunamadı' });
+    }
+});
+
+// API: BES Portfolio Metadata - Create
+app.post('/api/bes-portfolios', (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'Portfolio adı gereklidir' });
+        }
+        const result = db.prepare('INSERT INTO bes_portfolio_metadata (name) VALUES (?)').run(name.trim());
+        res.json({ id: result.lastInsertRowid, name: name.trim() });
+    } catch (err) {
+        res.status(500).json({ error: 'Portfolio eklenemedi' });
+    }
+});
+
+// API: BES Portfolio Metadata - Update
+app.put('/api/bes-portfolios/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'Portfolio adı gereklidir' });
+        }
+        // Prevent deleting default portfolio (id = 1)
+        if (parseInt(id) === 1) {
+            return res.status(400).json({ error: 'Varsayılan portfolio değiştirilemez' });
+        }
+        db.prepare('UPDATE bes_portfolio_metadata SET name = ? WHERE id = ?').run(name.trim(), id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Portfolio güncellenemedi' });
+    }
+});
+
+// API: BES Portfolio Metadata - Delete
+app.delete('/api/bes-portfolios/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const portfolioId = parseInt(id);
+
+        // Prevent deleting default portfolio (id = 1)
+        if (portfolioId === 1) {
+            return res.status(400).json({ error: 'Varsayılan portfolio silinemez' });
+        }
+
+        // Move all funds from this portfolio to default portfolio (1)
+        db.prepare('UPDATE bes_portfolio SET portfolioId = 1 WHERE portfolioId = ?').run(portfolioId);
+
+        // Delete the portfolio metadata
+        db.prepare('DELETE FROM bes_portfolio_metadata WHERE id = ?').run(portfolioId);
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Portfolio silinemedi' });
+    }
+});
+
+// API: BES Portfolio - Get by portfolioId
+app.get('/api/bes-portfolio/:portfolioId', (req, res) => {
+    try {
+        const { portfolioId } = req.params;
+        const rows = db.prepare('SELECT * FROM bes_portfolio WHERE portfolioId = ? ORDER BY id').all(portfolioId);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'BES verisi okunamadı' });
     }
 });
 
