@@ -919,7 +919,8 @@ class FVTDataView {
                 ? '<svg class="fav-icon favorited" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
                 : '<svg class="fav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
 
-            const linkUrl = row.fonlink ? `https://fvt.com.tr/yatirim-fonlari/${row.fonlink}/` : '#';
+            // Yeni URL formatı: https://fvt.com.tr/fonlar/yatirim-fonlari/{KOD}
+            const linkUrl = row.fon_kodu ? `https://fvt.com.tr/fonlar/yatirim-fonlari/${row.fon_kodu}` : '#';
 
             tr.innerHTML = `
                 <td class="fav-col">
@@ -1240,8 +1241,9 @@ function getFormattedDates() {
     const manualDates = sessionManualDates;
     if (manualDates) {
         try {
-            const parsed = JSON.parse(manualDates);
-            const fmt = (iso) => { const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
+            // Handle both string (JSON) and object formats
+            const parsed = typeof manualDates === 'string' ? JSON.parse(manualDates) : manualDates;
+            const fmt = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
             return { today: fmt(parsed.today), targetDay: fmt(parsed.target), sevenDaysAgo: fmt(parsed.seven) };
         } catch (e) { }
     }

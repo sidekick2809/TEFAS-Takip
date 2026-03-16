@@ -2352,6 +2352,10 @@ th.sortable.sort-desc::after {
   color: var(--icon-kap);
 }
 
+.mobile-nav-btn[data-tab="tab-fvt"] .mobile-icon-wrapper svg {
+  color: var(--icon-fvt);
+}
+
 /* Active state with specific colors */
 .mobile-nav-btn.active[data-tab="tab-dashboard"] .mobile-icon-wrapper svg {
   color: var(--icon-dash);
@@ -2381,6 +2385,10 @@ th.sortable.sort-desc::after {
   color: var(--icon-kap);
 }
 
+.mobile-nav-btn.active[data-tab="tab-fvt"] .mobile-icon-wrapper svg {
+  color: var(--icon-fvt);
+}
+
 .mobile-nav-btn.active[data-tab="tab-dashboard"] .mobile-icon-wrapper {
   background: rgba(67, 24, 255, 0.15);
 }
@@ -2407,6 +2415,10 @@ th.sortable.sort-desc::after {
 
 .mobile-nav-btn.active[data-tab="tab-kap"] .mobile-icon-wrapper {
   background: rgba(166, 60, 60, 0.2);
+}
+
+.mobile-nav-btn.active[data-tab="tab-fvt"] .mobile-icon-wrapper {
+  background: rgba(1, 181, 116, 0.15);
 }
 
 /* Notification badge for KAP */

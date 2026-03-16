@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import cors from 'cors';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import * as cheerio from 'cheerio';
 
 const require = createRequire(import.meta.url);
 const Database = require('better-sqlite3');
@@ -751,7 +752,8 @@ app.get('/api/fvt-favorites-realtime', async (req, res) => {
             }
 
             try {
-                const fundUrl = `https://fvt.com.tr/yatirim-fonlari/${fund.fonlink}/`;
+                // Yeni URL formatı: https://fvt.com.tr/fonlar/yatirim-fonlari/{KOD}
+                const fundUrl = `https://fvt.com.tr/fonlar/yatirim-fonlari/${fund.fon_kodu}`;
                 const response = await fetch(fundUrl, {
                     headers: {
                         'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -760,24 +762,51 @@ app.get('/api/fvt-favorites-realtime', async (req, res) => {
                 });
 
                 if (!response.ok) {
-                    results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: null, error: 'Fetch error' });
+                    results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: null, error: 'Fetch error: ' + response.status });
                     continue;
                 }
 
                 const html = await response.text();
 
-                // Extract change value from h5 > span element (XPath: //*[@id="main-content"]/div[1]/div/div[1]/div/div/div[2]/div/div/div/div[1]/h5/span)
-                const h5SpanMatch = html.match(/<h5[^>]*class="[^"]*updated[^"]*"[^>]*>[\s\S]*?<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
-                const anyH5SpanMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
-                const updatedMatch = html.match(/<h5[^>]*>\s*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?/i);
+                // XPath ile veri çekme: /html/body/div[2]/div[1]/main/div/div/div[1]/div[2]/div/div[1]/span[2]
+                const $ = cheerio.load(html);
 
+                // Alternatif selector denemeleri
                 let change = null;
-                if (h5SpanMatch) {
-                    change = h5SpanMatch[1].replace(',', '.');
-                } else if (anyH5SpanMatch) {
-                    change = anyH5SpanMatch[1].replace(',', '.');
-                } else if (updatedMatch) {
-                    change = updatedMatch[1].replace(',', '.');
+
+                // Selector 1: Verilen XPath'ın CSS karşılığı
+                const spanElement = $('body > div:nth-child(2) > div:nth-child(1) > main > div > div > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(1) > span:nth-child(2)');
+                if (spanElement.length > 0) {
+                    const text = spanElement.text().trim();
+                    const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+                    if (match) {
+                        change = match[1].replace(',', '.');
+                    }
+                }
+
+                // Selector 2: updated class'ı içeren span
+                if (!change) {
+                    const updatedSpan = $('span.updated, span[class*="updated"]');
+                    if (updatedSpan.length > 0) {
+                        const text = updatedSpan.text().trim();
+                        const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+                        if (match) {
+                            change = match[1].replace(',', '.');
+                        }
+                    }
+                }
+
+                // Selector 3: Son span elementi
+                if (!change) {
+                    const allSpans = $('div.card.fvt-card span');
+                    if (allSpans.length > 0) {
+                        const lastSpan = allSpans.last();
+                        const text = lastSpan.text().trim();
+                        const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+                        if (match) {
+                            change = match[1].replace(',', '.');
+                        }
+                    }
                 }
 
                 results.push({ code: fund.fon_kodu, name: fund.fon_adi, change: change });
@@ -796,14 +825,14 @@ app.get('/api/fvt-favorites-realtime', async (req, res) => {
 app.get('/api/fvt-fund/:code', async (req, res) => {
     try {
         const code = req.params.code;
-        // First get the fonlink from database
-        const fund = db.prepare('SELECT fonlink, fon_kodu, fon_adi FROM fvt_data WHERE fon_kodu = ?').get(code);
-        if (!fund || !fund.fonlink) {
+        // KOD (fon_kodu) ile doğrudan URL oluştur
+        const fund = db.prepare('SELECT fon_kodu, fon_adi FROM fvt_data WHERE fon_kodu = ?').get(code);
+        if (!fund) {
             return res.status(404).json({ error: 'Fon bulunamadı' });
         }
 
-        // Fetch from FVT website
-        const fundUrl = `https://fvt.com.tr/yatirim-fonlari/${fund.fonlink}/`;
+        // Yeni URL formatı: https://fvt.com.tr/fonlar/yatirim-fonlari/{KOD}
+        const fundUrl = `https://fvt.com.tr/fonlar/yatirim-fonlari/${code}`;
         const response = await fetch(fundUrl, {
             headers: {
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -817,36 +846,58 @@ app.get('/api/fvt-fund/:code', async (req, res) => {
 
         const html = await response.text();
 
-        // Extract change value using XPath-like approach
-        // The XPath: //*[@id="main-content"]/div[1]/div/div[1]/div/div/div[2]/div/div/div/div[1]/h5/span
-        // Looking for: #main-content > div:nth-child(1) > div > div.card.fvt-card > div > div > div.col-12.col-sm-12.col-xxl-auto.mb-3.mb-md-0.bg-none > div > div > div > div.col-auto.text-start.bg-none.py-2.updated > h5 > span
+        // XPath ile veri çekme: /html/body/div[2]/div[1]/main/div/div/div[1]/div[2]/div/div[1]/span[2]
+        const $ = cheerio.load(html);
 
-        // Match the updated section containing h5 > span with the change value
-        const h5SpanMatch = html.match(/<h5[^>]*class="[^"]*updated[^"]*"[^>]*>[\s\S]*?<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
-        const anyH5SpanMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?<\/span>/i);
-        const updatedMatch = html.match(/<h5[^>]*>\s*<span[^>]*>([+-]?\d+[.,]?\d*)\s*%?/i);
-        const priceMatch = html.match(/<h5[^>]*>[^<]*<span[^>]*>([\d.,]+)<\/span>/i);
-
+        // Alternatif selector denemeleri
         let change = null;
-        if (h5SpanMatch) {
-            change = h5SpanMatch[1].replace(',', '.');
-        } else if (anyH5SpanMatch) {
-            change = anyH5SpanMatch[1].replace(',', '.');
-        } else if (updatedMatch) {
-            change = updatedMatch[1].replace(',', '.');
+        let price = null;
+
+        // Selector 1: Verilen XPath'ın CSS karşılığı
+        const spanElement = $("body > div:nth-child(2) > div:nth-child(1) > main > div > div > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(1) > span:nth-child(2)");
+        if (spanElement.length > 0) {
+            const text = spanElement.text().trim();
+            const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+            if (match) {
+                change = match[1].replace(',', '.');
+            }
+            const priceMatch = text.match(/(\d+[.,]\d+)/);
+            if (priceMatch) {
+                price = priceMatch[1].replace(',', '.');
+            }
+        }
+
+        // Selector 2: updated class'ı içeren span
+        if (!change) {
+            const updatedSpan = $("span.updated, span[class*='updated']");
+            if (updatedSpan.length > 0) {
+                const text = updatedSpan.text().trim();
+                const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+                if (match) {
+                    change = match[1].replace(',', '.');
+                }
+            }
+        }
+
+        // Selector 3: Son span elementi
+        if (!change) {
+            const allSpans = $("div.card.fvt-card span");
+            if (allSpans.length > 0) {
+                const lastSpan = allSpans.last();
+                const text = lastSpan.text().trim();
+                const match = text.match(/([+-]?\d+[.,]?\d*)\s*%?/);
+                if (match) {
+                    change = match[1].replace(',', '.');
+                }
+            }
         }
 
         const result = {
-            code: fund.fon_kodu,
+            code: code,
             name: fund.fon_adi,
             url: fundUrl,
             change: change,
-            price: priceMatch ? priceMatch[1].replace(',', '.') : null,
-            debug: {
-                h5SpanMatch: h5SpanMatch ? h5SpanMatch[1] : null,
-                anyH5SpanMatch: anyH5SpanMatch ? anyH5SpanMatch[1] : null,
-                updatedMatch: updatedMatch ? updatedMatch[1] : null
-            }
+            price: price
         };
 
         res.json(result);

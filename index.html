@@ -141,17 +141,6 @@
           </div>
           <span>KAP Bildirimleri</span>
         </button>
-        <button class="sidebar-btn tab-btn has-tooltip" data-tooltip="FVT Data" data-tab="tab-fvt">
-          <div class="icon-wrapper fvt">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-            </svg>
-          </div>
-          <span>FVT Data</span>
-        </button>
       </nav>
     </aside>
 
@@ -358,6 +347,18 @@
               <div class="summary-info">
                 <span class="summary-label">Gerçekleşen Kar</span>
                 <span class="summary-value" id="pf-realized-profit">₺0.00</span>
+              </div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <div class="summary-info">
+                <span class="summary-label">Fon Sayısı</span>
+                <span class="summary-value" id="pf-total-funds">0</span>
               </div>
             </div>
           </div>
@@ -1618,130 +1619,6 @@
             <tbody id="kap-body">
               <tr>
                 <td colspan="5" class="empty-state">Veri yüklemek için "Verileri Çek" butonuna tıklayın.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TAB: FVT DATA -->
-      <div id="tab-fvt" class="tab-panel">
-        <div class="toolbar fade-in" style="flex-direction: column; align-items: stretch; gap: 1rem;">
-          <!-- Top Row: Title and Controls -->
-          <div
-            style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); margin-bottom: 0.25rem;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                <polyline points="17 6 23 6 23 12" />
-              </svg>
-              <h3 style="margin: 0; font-size: 1.1rem;">FVT Data</h3>
-              <div id="last-update-fvt" class="last-update-text"></div>
-            </div>
-            <div style="display: flex; gap: 0.75rem; align-items: center;">
-              <button id="fetch-fvt-btn" class="icon-btn has-tooltip" data-tooltip="Verileri Güncelle">
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <div class="loader-spinner" style="display: none; width: 20px; height: 20px;"></div>
-              </button>
-              <button id="clear-fvt-btn" class="icon-btn has-tooltip" data-tooltip="Veritabanını Temizle">
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6h18"></path>
-                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                  <path d="M10 11v6"></path>
-                  <path d="M14 11v6"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Bottom Row: Filters -->
-          <div class="filter-group">
-            <label>Ara:</label>
-            <input type="text" id="fvt-search-input" class="form-input" placeholder="Kod veya Fon adı ile ara..."
-              style="width: 100px; padding: 6px 12px;">
-
-            <label>Kategori:</label>
-            <div class="multi-select" id="fvt-kategori-select">
-              <div class="multi-select-trigger">
-                <span class="multi-select-text">Tümü Seçili</span>
-                <div class="arrow"></div>
-              </div>
-              <div class="multi-select-dropdown">
-                <div class="multi-select-options" id="fvt-kategori-options"></div>
-              </div>
-            </div>
-
-            <label>Şirket:</label>
-            <div class="multi-select" id="fvt-sirket-select">
-              <div class="multi-select-trigger">
-                <span class="multi-select-text">Tümü Seçili</span>
-                <div class="arrow"></div>
-              </div>
-              <div class="multi-select-dropdown">
-                <div class="multi-select-options" id="fvt-sirket-options"></div>
-              </div>
-            </div>
-
-            <button id="fav-filter-btn-fvt" class="icon-btn fav-filter-btn has-tooltip"
-              data-tooltip="Favorileri Filtrele" style="width:36px;height:36px;">
-              <svg class="fav-filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path
-                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
-                </path>
-              </svg>
-            </button>
-
-            <button id="apply-fvt-filter-btn" class="secondary-btn">Uygula</button>
-            <button id="reset-fvt-filter-btn" class="secondary-btn outline">Varsayılan</button>
-          </div>
-        </div>
-
-        <div id="fvt-table-container" class="table-container fade-in">
-          <!-- Favorites Section -->
-          <div id="fvt-favorites-section" class="favorites-section" style="display: none;">
-            <div class="favorites-header">
-              <h4>Anlık Tahmin <span id="fav-count">(0)</span></h4>
-              <button id="refresh-favorites-btn" class="icon-btn has-tooltip" data-tooltip="Favorileri Yenile">
-                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2">
-                  <path d="M23 4v6h-6"></path>
-                  <path d="M1 20v-6h6"></path>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-              </button>
-            </div>
-            <div id="fvt-favorites-list" class="favorites-list"></div>
-          </div>
-
-          <table id="fvt-table">
-            <thead>
-              <tr>
-                <th data-sort="fav" data-index="-1" class="fav-col">Fav</th>
-                <th data-sort="kod" data-index="0">KOD</th>
-                <th data-sort="kategori" data-index="1">KATEGORİ</th>
-                <th data-sort="1h" data-index="2">1H %</th>
-                <th data-sort="1a" data-index="3">1A %</th>
-                <th data-sort="3a" data-index="4">3A %</th>
-                <th data-sort="6a" data-index="5">6A %</th>
-                <th data-sort="ybb" data-index="6">YBB %</th>
-                <th data-sort="1y" data-index="7">1Y %</th>
-                <th data-sort="3y" data-index="8">3Y %</th>
-                <th data-sort="5y" data-index="9">5Y %</th>
-                <th data-sort="stopaj" data-index="10">STOPAJ %</th>
-                <th data-sort="yonetimbas" data-index="11">YÖN.ÜC %</th>
-              </tr>
-            </thead>
-            <tbody id="fvt-table-body">
-              <tr>
-                <td colspan="13" class="empty-state">Veri çekmek için "Verileri Güncelle" butonuna tıklayın.</td>
               </tr>
             </tbody>
           </table>
