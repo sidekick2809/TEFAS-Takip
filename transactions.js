@@ -157,14 +157,18 @@ const sidebarToggle = document.getElementById('sidebar-toggle');
 const sidebar = document.querySelector('.sidebar');
 
 if (sidebarToggle && sidebar) {
+    const mainContent = document.querySelector('.main-content');
+
     sidebarToggle.addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
+        mainContent?.classList.toggle('sidebar-collapsed');
         localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
     });
 
     // Load saved state
     if (localStorage.getItem('sidebarCollapsed') === 'true') {
         sidebar.classList.add('collapsed');
+        mainContent?.classList.add('sidebar-collapsed');
     }
 }
 

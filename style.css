@@ -548,7 +548,7 @@ body {
   transition: all 0.3s ease;
 }
 
-.sidebar.collapsed+.main-content {
+.main-content.sidebar-collapsed {
   margin-left: 90px;
   max-width: calc(100% - 90px);
 }
