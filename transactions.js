@@ -734,7 +734,7 @@ function renderCharts(fundRows) {
     if (ctxDailyPerf) {
         const dailyPerfData = [...fundRows].filter(f => f.g1 !== null).sort((a, b) => b.g1 - a.g1);
         const dailyPerfLabels = dailyPerfData.map(f => f.code);
-        const dailyPerfValues = dailyPerfData.map(f => f.g1 * 100);
+        const dailyPerfValues = dailyPerfData.map(f => parseFloat((f.g1 * 100).toFixed(2)));
         const dailyPerfColors = dailyPerfValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
 
         dailyPerfChartInstance = new Chart(ctxDailyPerf, {
@@ -758,7 +758,7 @@ function renderCharts(fundRows) {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `%${context.parsed.y.toFixed(2)}`
+                            label: (context) => `%${parseFloat(context.parsed.y.toFixed(2))}`
                         }
                     }
                 },
@@ -771,7 +771,7 @@ function renderCharts(fundRows) {
                         ticks: {
                             color: textColor,
                             font: { weight: '500' },
-                            callback: (value) => `%${value}`
+                            callback: (value) => `%${parseFloat(value.toFixed(2))}`
                         },
                         grid: { color: gridColor, drawBorder: false },
                         beginAtZero: true
@@ -788,7 +788,7 @@ function renderCharts(fundRows) {
     if (ctxWeeklyPerf) {
         const weeklyPerfData = [...fundRows].filter(f => f.h1 !== null).sort((a, b) => b.h1 - a.h1);
         const weeklyPerfLabels = weeklyPerfData.map(f => f.code);
-        const weeklyPerfValues = weeklyPerfData.map(f => f.h1 * 100);
+        const weeklyPerfValues = weeklyPerfData.map(f => parseFloat((f.h1 * 100).toFixed(2)));
         const weeklyPerfColors = weeklyPerfValues.map(v => v >= 0 ? '#10B981' : '#EF4444');
 
         weeklyPerfChartInstance = new Chart(ctxWeeklyPerf, {
@@ -812,7 +812,7 @@ function renderCharts(fundRows) {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `%${context.parsed.y.toFixed(2)}`
+                            label: (context) => `%${parseFloat(context.parsed.y.toFixed(2))}`
                         }
                     }
                 },
@@ -825,7 +825,7 @@ function renderCharts(fundRows) {
                         ticks: {
                             color: textColor,
                             font: { weight: '500' },
-                            callback: (value) => `%${value}`
+                            callback: (value) => `%${parseFloat(value.toFixed(2))}`
                         },
                         grid: { color: gridColor, drawBorder: false },
                         beginAtZero: true
