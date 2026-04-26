@@ -354,7 +354,7 @@ function renderPortfolio() {
         tr.innerHTML = `
         <td class="val-neutral" style="font-size: 0.85rem; color: var(--text-muted);">${stats.rowNo}</td>
         <td>
-            <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${entry.code}" target="_blank" class="fund-link">
+            <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${entry.code}" target="_blank" class="fund-link">
                 <strong>${entry.code}</strong>
             </a>
         </td>
@@ -564,7 +564,7 @@ function renderDashboard() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="has-tooltip" data-tooltip="${row.name}">
-                <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${row.code}" target="_blank" class="fund-link">
+                <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row.code}" target="_blank" class="fund-link">
                     <strong>${row.code}</strong>
                 </a>
                 <div class="wrap-text unvan-text fund-name-sub">${row.name}</div>
@@ -2094,7 +2094,7 @@ function renderBesPortfolio() {
         tr.innerHTML = `
         <td class="val-neutral" style="font-size: 0.85rem; color: var(--text-muted);">${stats.rowNo}</td>
         <td>
-            <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${entry.code}" target="_blank" class="fund-link">
+            <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${entry.code}" target="_blank" class="fund-link">
                 <strong>${entry.code}</strong>
             </a>
         </td>
@@ -2425,7 +2425,7 @@ function updateBesSummary(rows, data) {
                 return `
                     <tr style="border-bottom: 1px solid var(--border-color);">
                         <td style="padding: 0.25rem 0.5rem; text-align: left;">
-                            <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${fund.code}" target="_blank" class="fund-link">
+                            <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${fund.code}" target="_blank" class="fund-link">
                                 <strong>${fund.code}</strong>
                             </a>
                         </td>

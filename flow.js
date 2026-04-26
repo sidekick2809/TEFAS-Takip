@@ -38,31 +38,33 @@ function getFlowDates() {
     const manualYesterday = sessionFlowYesterday;
 
     if (manualToday && manualYesterday) {
-        // manualToday is already YYYY-MM-DD from input, 
-        // bittarih (currentDate) needs DD.MM.YYYY
+        // manualToday and manualYesterday are already YYYY-MM-DD format
         const d1 = new Date(manualToday);
-        const day1 = String(d1.getDate()).padStart(2, '0');
-        const month1 = String(d1.getMonth() + 1).padStart(2, '0');
         const year1 = d1.getFullYear();
-        const currentDate = `${day1}.${month1}.${year1}`;
+        const month1 = String(d1.getMonth() + 1).padStart(2, '0');
+        const day1 = String(d1.getDate()).padStart(2, '0');
+        const currentDate = `${year1}${month1}${day1}`; // YYYYMMDD format
 
-        // formattedThreeDaysAgo is YYYY-MM-DD
-        const formattedThreeDaysAgo = manualYesterday;
+        const d2 = new Date(manualYesterday);
+        const year2 = d2.getFullYear();
+        const month2 = String(d2.getMonth() + 1).padStart(2, '0');
+        const day2 = String(d2.getDate()).padStart(2, '0');
+        const formattedThreeDaysAgo = `${year2}${month2}${day2}`; // YYYYMMDD format
 
         return { formattedThreeDaysAgo, currentDate };
     }
 
     const now = new Date();
 
-    // API bitis tarihi dd.MM.yyyy istiyor
-    const formatDateTR = (d) => {
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
+    // Format date as YYYYMMDD for TEFAS API
+    const formatDateTEFAS = (d) => {
         const year = d.getFullYear();
-        return `${day}.${month}.${year}`;
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}${month}${day}`;
     };
 
-    const currentDateTR = formatDateTR(now);
+    const currentDate = formatDateTEFAS(now);
 
     const threeDaysAgo = new Date(now);
     const today = now.getDay(); // 0=Pazar, 1=Pazartesi, ...
@@ -72,9 +74,9 @@ function getFlowDates() {
     } else {
         threeDaysAgo.setDate(now.getDate() - 1);
     }
-    const formattedThreeDaysAgoTR = formatDateTR(threeDaysAgo);
+    const formattedThreeDaysAgo = formatDateTEFAS(threeDaysAgo);
 
-    return { formattedThreeDaysAgo: formattedThreeDaysAgoTR, currentDate: currentDateTR };
+    return { formattedThreeDaysAgo, currentDate };
 }
 
 async function fetchFlowData() {
@@ -84,8 +86,11 @@ async function fetchFlowData() {
         return;
     }
 
-    const { formattedThreeDaysAgo, currentDate } = getFlowDates();
-    const apiUrl = '/api/DB/BindHistoryInfo';
+    // DEBUG: Use test dates because market may be closed
+    const { formattedThreeDaysAgo: originalToday, currentDate: originalYesterday } = getFlowDates();
+    const formattedThreeDaysAgo = '20260417'; // 7 days ago
+    const currentDate = '20260424'; // today (test date - market closed on 20260426)
+    const apiUrl = '/api/tefas/fon-gnl-blgsirali';
 
     const results = [];
 
@@ -99,34 +104,25 @@ async function fetchFlowData() {
     try {
         for (const code of activeFunds) {
             try {
-                // Determine if EMK or YAT based on code (standard is 3 letters)
-                // However, for simplicity and since TEFAS usually uses YAT for both or separate,
-                // but EMK funds usually fail with fontip=YAT.
-                // Let's check fullData to guess fontip if available.
                 const fullData = window.fullData || JSON.parse(localStorage.getItem('tefasData')) || [];
                 const besData = JSON.parse(localStorage.getItem('tefasData-bes')) || [];
 
                 let fontip = "YAT";
                 if (besData.find(f => f[0] === code)) fontip = "EMK";
 
-                const payload = new URLSearchParams({
-                    "fontip": fontip,
-                    "sfontur": "",
-                    "fonkod": code.toUpperCase(),
-                    "fongrup": "",
-                    "bastarih": formattedThreeDaysAgo,
-                    "bittarih": currentDate,
-                    "fonturkod": "",
-                    "fonunvantip": "",
-                    "kurucukod": ""
-                });
+                const payload = {
+                    fontip: fontip,
+                    fonkod: code.toUpperCase(),
+                    bastarih: formattedThreeDaysAgo,
+                    bitTarih: currentDate
+                };
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+                        'Content-Type': 'application/json'
                     },
-                    body: payload.toString()
+                    body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) continue;
@@ -228,7 +224,7 @@ function renderFlowTable(results) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${item.code}" target="_blank" class="fund-link">
+                <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${item.code}" target="_blank" class="fund-link">
                     <strong>${item.code}</strong>
                 </a>
             </td>

@@ -229,30 +229,70 @@ class TefasDataView {
 
         try {
             const tefasStatusMap = await this.getTefasStatusData();
-            const { today, sevenDaysAgo, targetDay } = getFormattedDates();
+            // DEBUG: Use test dates because market is closed on 2026-04-26
+            const { todayTefas, sevenDaysAgoTefas, targetDayTefas } = getFormattedDates();
+            const todayTest = '20260424';
+            const yesterdayTest = '20260422'; 
+            const sevenDaysTest = '20260417';
 
-            const baseUrl = '/api/DB/';
             const payloads = [
-                { url: baseUrl + 'BindHistoryInfo', body: `fontip=${this.fontip}&sfontur=&fonkod=&fongrup=&bastarih=${today}&bittarih=${today}&fontkod=&fonunvantip=&kurucukod=` },
-                { url: baseUrl + 'BindHistoryInfo', body: `fontip=${this.fontip}&sfontur=&fonkod=&fongrup=&bastarih=${sevenDaysAgo}&bittarih=${sevenDaysAgo}&fontkod=&fonunvantip=&kurucukod=` },
-                { url: baseUrl + 'BindHistoryInfo', body: `fontip=${this.fontip}&sfontur=&fonkod=&fongrup=&bastarih=${targetDay}&bittarih=${targetDay}&fontkod=&fonunvantip=&kurucukod=` },
-                { url: baseUrl + 'BindComparisonFundReturns', body: `calismatipi=2&fontip=${this.fontip}&sfontur=&kurucukod=&fongrup=&bastarih=${today}&bittarih=${today}&fontkod=&fonunvantip=&strperiod=1,1,1,1,1,1,1&islemdurum=` }
+                { 
+                    url: '/api/tefas/fon-gnl-blgsirali', 
+                    body: { 
+                        fontip: this.fontip, 
+                        bastarih: todayTest, 
+                        bitTarih: todayTest 
+                    } 
+                },
+                { 
+                    url: '/api/tefas/fon-gnl-blgsirali', 
+                    body: { 
+                        fontip: this.fontip, 
+                        bastarih: sevenDaysTest, 
+                        bitTarih: yesterdayTest 
+                    } 
+                },
+                { 
+                    url: '/api/tefas/fon-gnl-blgsirali', 
+                    body: { 
+                        fontip: this.fontip, 
+                        bastarih: sevenDaysTest, 
+                        bitTarih: yesterdayTest 
+                    } 
+                },
+                { 
+                    url: '/api/tefas/fon-getiri-bazli', 
+                    body: { fontip: this.fontip } 
+                }
             ];
 
             const responses = await Promise.all(payloads.map(req =>
                 fetch(req.url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: req.body
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(req.body)
                 }).then(r => r.json()).catch(e => { console.error('Fetch error for', req.url, e); return { data: [] }; })
             ));
 
-            const todayData = responses[0].data || [];
-            const sevenDaysAgoData = responses[1].data || [];
-            const yesterdayData = responses[2].data || [];
-            const returnsData = responses[3].data || [];
+            let todayData = responses[0].data || [];
+            let sevenDaysAgoData = responses[1].data || [];
+            let yesterdayData = responses[2].data || [];
+            let returnsData = responses[3].data || [];
+            
+            todayData = this.normalizeData(todayData);
+            sevenDaysAgoData = this.normalizeData(sevenDaysAgoData);
+            yesterdayData = this.normalizeData(yesterdayData);
+            returnsData = this.normalizeData(returnsData);
 
             console.log(`TEFAS ${this.fontip} Response: today=${todayData.length}, yesterday=${yesterdayData.length}, 7days=${sevenDaysAgoData.length}, returns=${returnsData.length}`);
+            
+            // Log full responses for debugging
+            console.log('Full API responses:', {
+                today: responses[0],
+                yesterday: responses[1],
+                sevendays: responses[2],
+                returns: responses[3]
+            });
 
             let finalData = this.processAndMergeData(todayData, sevenDaysAgoData, yesterdayData, returnsData, tefasStatusMap);
 
@@ -323,22 +363,85 @@ class TefasDataView {
     }
 
     async getTefasStatusData() {
-        const url = '/api/DB/BindComparisonFundReturns';
-        const payload1 = `calismatipi=2&fontip=${this.fontip}&sfontur=&kurucukod=&fongrup=&bastarih=Ba%C5%9Flang%C4%B1%C3%A7&bittarih=Biti%C5%9F&fonturkod=&fonunvantip=&strperiod=1%2C1%2C1%2C1%2C1%2C1%2C1&islemdurum=1`;
-        const payload2 = `calismatipi=2&fontip=${this.fontip}&sfontur=&kurucukod=&fongrup=&bastarih=Ba%C5%9Flang%C4%B1%C3%A7&bittarih=Biti%C5%9F&fonturkod=&fonunvantip=&strperiod=1%2C1%2C1%2C1%2C1%2C1%2C1&islemdurum=0`;
+        const payload = {
+            fonTipi: this.fontip
+        };
 
-        const req1 = fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload1 }).then(res => res.json());
-        const req2 = fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload2 }).then(res => res.json());
+        const req = fetch('/api/tefas/fon-getiri-bazli', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(res => res.json());
 
-        const [res1, res2] = await Promise.all([req1, req2]);
+        const res = await req;
         const statusMap = new Map();
 
-        if (res1 && res1.data) res1.data.forEach(item => statusMap.set(item.FONKODU, 'EVET'));
-        if (res2 && res2.data) res2.data.forEach(item => statusMap.set(item.FONKODU, 'HAYIR'));
+        if (res && res.data) {
+            const normalized = this.normalizeData(res.data);
+            normalized.forEach(item => {
+                const islemDurum = item.islemDurum ?? item.ISLEMDURUM ?? item.islemDurumu ?? item.TEFAS ?? null;
+                if (islemDurum === 0 || islemDurum === '0' || islemDurum === 'HAYIR') {
+                    statusMap.set(item.FONKODU, 'HAYIR');
+                } else if (islemDurum === 1 || islemDurum === '1' || islemDurum === 'EVET' || islemDurum === true || islemDurum === 'true') {
+                    statusMap.set(item.FONKODU, 'EVET');
+                } else {
+                    statusMap.set(item.FONKODU, 'EVET');
+                }
+            });
+        }
 
         return statusMap;
     }
-
+    
+    normalizeData(dataArray) {
+        if (!dataArray || dataArray.length === 0) return dataArray;
+        
+        const firstRow = dataArray[0] || {};
+        const getColName = (...hints) => {
+            for (const hint of hints) {
+                const match = Object.keys(firstRow).find(k => k.toUpperCase().includes(hint.toUpperCase()));
+                if (match) return match;
+            }
+            return null;
+        };
+        
+        const codeCol = getColName('FONKODU', 'KODKISALT', 'KOD');
+        const priceCol = getColName('FIYAT', 'BIRIMPAYDEGER', 'PAYDEGER');
+        const nameCol = getColName('FONUNVAN', 'UNVAN', 'ADI');
+        const typeCol = getColName('TURACI', 'TURACIKLAMA', 'FONTUR');
+        const getiri1aCol = getColName('GETIRI1A');
+        const getiri3aCol = getColName('GETIRI3A');
+        const getiri6aCol = getColName('GETIRI6A');
+        const getiriybCol = getColName('GETIRIYB');
+        const getiri1yCol = getColName('GETIRI1Y');
+        const getiri3yCol = getColName('GETIRI3Y');
+        const getiri5yCol = getColName('GETIRI5Y');
+        const tefasCol = getColName('TEFASDUR', 'TEFAS');
+        const islemDurumCol = getColName('ISLEMDURUM', 'ISLEMDURUMU');
+        
+        return dataArray.map(row => {
+            const normalized = { ...row };
+            if (codeCol && !normalized.FONKODU) normalized.FONKODU = row[codeCol];
+            if (priceCol && !normalized.FIYAT) normalized.FIYAT = row[priceCol];
+            if (nameCol && !normalized.FONUNVAN) normalized.FONUNVAN = row[nameCol];
+            if (typeCol && !normalized.FONTURACIKLAMA) normalized.FONTURACIKLAMA = row[typeCol];
+            
+            if (getiri1aCol && !normalized.GETIRI1A) normalized.GETIRI1A = row[getiri1aCol];
+            if (getiri3aCol && !normalized.GETIRI3A) normalized.GETIRI3A = row[getiri3aCol];
+            if (getiri6aCol && !normalized.GETIRI6A) normalized.GETIRI6A = row[getiri6aCol];
+            if (getiriybCol && !normalized.GETIRIYB) normalized.GETIRIYB = row[getiriybCol];
+            if (getiri1yCol && !normalized.GETIRI1Y) normalized.GETIRI1Y = row[getiri1yCol];
+            if (getiri3yCol && !normalized.GETIRI3Y) normalized.GETIRI3Y = row[getiri3yCol];
+            if (getiri5yCol && !normalized.GETIRI5Y) normalized.GETIRI5Y = row[getiri5yCol];
+            
+            if (tefasCol && !normalized.TEFAS) {
+                 const tefasVal = String(row[tefasCol]).trim().toLowerCase();
+                 normalized.TEFAS = (tefasVal === 'true' || tefasVal === '1' || tefasVal === 'evet') ? 'EVET' : 'HAYIR';
+            }
+            if (islemDurumCol && !normalized.ISLEMDURUM) normalized.ISLEMDURUM = row[islemDurumCol];
+            return normalized;
+        });
+    }
     processAndMergeData(todayData, sevenDaysAgoData, yesterdayData, returnsData, tefasStatusMap) {
         const dataMap = new Map();
         const allFundCodes = new Set([
@@ -452,7 +555,7 @@ class TefasDataView {
                     </button>
                 </td>
                 <td class="has-tooltip" data-tooltip="${row[1]}">
-                    <a href="https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
+                    <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
                     <div class="wrap-text unvan-text fund-name-sub">${row[1]}</div>
                 </td>
                 <td>${formatPercent(row[2])}</td>
@@ -1244,7 +1347,15 @@ function getFormattedDates() {
             // Handle both string (JSON) and object formats
             const parsed = typeof manualDates === 'string' ? JSON.parse(manualDates) : manualDates;
             const fmt = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; };
-            return { today: fmt(parsed.today), targetDay: fmt(parsed.target), sevenDaysAgo: fmt(parsed.seven) };
+            const fmtTefas = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${y}${m.padStart(2, '0')}${d.padStart(2, '0')}`; };
+            return { 
+                today: fmt(parsed.today), 
+                targetDay: fmt(parsed.target), 
+                sevenDaysAgo: fmt(parsed.seven),
+                todayTefas: fmtTefas(parsed.today),
+                targetDayTefas: fmtTefas(parsed.target),
+                sevenDaysAgoTefas: fmtTefas(parsed.seven)
+            };
         } catch (e) { }
     }
     const d = new Date();
@@ -1257,7 +1368,20 @@ function getFormattedDates() {
     const seven = new Date(d);
     seven.setDate(d.getDate() - 7);
     const f = (date) => `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
-    return { today: f(d), sevenDaysAgo: f(seven), targetDay: f(target) };
+    const fTefas = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${y}${m}${day}`;
+    };
+    return { 
+        today: f(d), 
+        sevenDaysAgo: f(seven), 
+        targetDay: f(target),
+        todayTefas: fTefas(d),
+        sevenDaysAgoTefas: fTefas(seven),
+        targetDayTefas: fTefas(target)
+    };
 }
 
 // Initialization
@@ -1664,3 +1788,4 @@ document.addEventListener('click', (e) => {
         }
     }
 });
+    

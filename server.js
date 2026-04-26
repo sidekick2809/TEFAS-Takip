@@ -134,6 +134,16 @@ db.exec(`
     )
 `);
 
+// Helper function to format date from DD.MM.YYYY to YYYYMMDD
+function formatTefasDate(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.split('.');
+  if (parts.length === 3) {
+    return `${parts[2]}${parts[1].padStart(2, '0')}${parts[0].padStart(2, '0')}`;
+  }
+  return dateStr.replace(/\./g, '');
+}
+
 // TEFAS and BES history tables
 db.exec(`
     CREATE TABLE IF NOT EXISTS yat_history (
@@ -191,7 +201,9 @@ db.exec(`
     )
 `);
 
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['x-request-id', 'apinizer-correlation-id', 'cache-control']
+}));
 app.use(express.json({ limit: '50mb' })); // Increase limit for large fund data
 
 // API: Portfolio - Get (by fundType: YAT or EMK)
@@ -905,6 +917,210 @@ app.get('/api/fvt-fund/:code', async (req, res) => {
         console.error('FVT fund fetch error:', err);
         res.status(500).json({ error: 'Fon verisi çekilemedi: ' + err.message });
     }
+});
+
+// ==================== TEFAS SESSION MANAGEMENT ====================
+let tefasCookie = '';
+
+async function getTefasCookie() {
+    try {
+        const res = await fetch('https://www.tefas.gov.tr/TarihselVeriler.aspx', {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            }
+        });
+        
+        let cookies = [];
+        if (typeof res.headers.getSetCookie === 'function') {
+            cookies = res.headers.getSetCookie();
+        } else {
+            const setCookieHeader = res.headers.get('set-cookie');
+            if (setCookieHeader) {
+                cookies = setCookieHeader.split(',').map(s => s.trim());
+            }
+        }
+        
+        if (cookies && cookies.length > 0) {
+            tefasCookie = cookies.map(s => s.split(';')[0]).join('; ');
+            console.log("TEFAS session cookie obtained");
+        }
+    } catch (e) {
+        console.error("Failed to get TEFAS cookie", e);
+    }
+}
+
+// Initial session fetch
+getTefasCookie();
+
+async function fetchWithTefasSession(url, payload) {
+    if (!tefasCookie) {
+        await getTefasCookie();
+    }
+    const headers = { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://www.tefas.gov.tr/TarihselVeriler.aspx',
+        'Origin': 'https://www.tefas.gov.tr',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Connection': 'keep-alive'
+    };
+    if (tefasCookie) {
+        headers['Cookie'] = tefasCookie;
+    }
+    
+    let response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    
+    // If forbidden, refresh session and retry once
+    if (response.status === 403) {
+        console.log("TEFAS 403 received, refreshing session cookie...");
+        await getTefasCookie();
+        if (tefasCookie) {
+            headers['Cookie'] = tefasCookie;
+        }
+        response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+    }
+    
+    return response;
+}
+
+function extractDataFromResponse(jsonData) {
+    if (jsonData === null || jsonData === undefined) return [];
+    if (Array.isArray(jsonData)) return jsonData;
+    if (typeof jsonData === 'object') {
+        for (const key of ['data', 'Data', 'result', 'Result', 'fonlar', 'items', 'rows']) {
+            if (jsonData[key] && Array.isArray(jsonData[key])) {
+                return jsonData[key];
+            }
+        }
+        const found = Object.values(jsonData).find(v => Array.isArray(v));
+        if (found) return found;
+    }
+    return [];
+}
+
+// API: TEFAS - Fon Genel Bilgi Getir (fonGnlBlgSiraliGetir)
+app.post('/api/tefas/fon-gnl-blgsirali', async (req, res) => {
+  try {
+    const { fontip, fonkod, bastarih, bitTarih } = req.body;
+    
+    // Format date from DD.MM.YYYY to YYYYMMDD for TEFAS API
+    const basTarih = formatTefasDate(bastarih);
+    const bitTarihFormatted = formatTefasDate(bitTarih);
+    
+    const payload = {
+      fonTipi: fontip || "YAT",
+      fonKodu: fonkod || null,
+      aramaMetni: null,
+      fonTurKod: null,
+      fonGrubu: null,
+      sfonTurKod: null,
+      basTarih,
+      bitTarih: bitTarihFormatted,
+      basSira: 1,
+      bitSira: 2100,
+      fonTurAciklama: null,
+      dil: "TR",
+      kurucuKod: null
+    };
+    
+    const tefasResponse = await fetchWithTefasSession('https://www.tefas.gov.tr/api/funds/fonGnlBlgSiraliGetir', payload);
+    
+    console.log(`TEFAS API Response Status: ${tefasResponse.status}`);
+    
+    if (!tefasResponse.ok) {
+      throw new Error(`TEFAS API error: ${tefasResponse.status}`);
+    }
+    
+    const data = await tefasResponse.json();
+    
+    // Forward important headers from TEFAS response
+    const headersToForward = [
+      'x-request-id',
+      'apinizer-correlation-id',
+      'cache-control',
+      'strict-transport-security',
+      'x-content-type-options',
+      'x-frame-options',
+      'x-xss-protection'
+    ];
+    for (const header of headersToForward) {
+      const value = tefasResponse.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
+      }
+    }
+    
+    res.json({ data: extractDataFromResponse(data) });
+  } catch (err) {
+    console.error('TEFAS fon gnl blg sirali error:', err);
+    res.status(500).json({ error: 'Fon verileri çekilemedi: ' + err.message });
+  }
+});
+
+// API: TEFAS - Fon Getiri Bazlı Bilgi Getir (fonGetiriBazliBilgiGetir)
+app.post('/api/tefas/fon-getiri-bazli', async (req, res) => {
+  try {
+    const { fontip } = req.body;
+    
+    const payload = {
+      dil: "TR",
+      fonTipi: fontip || "YAT",
+      kurucuKodu: null,
+      sfonTurKod: null,
+      fonTurAciklama: null,
+      islem: null,
+      calismaTipi: 2,
+      fonTurKod: null,
+      fonGrubu: null,
+      donemGetiri1a: "1",
+      donemGetiri3a: "1",
+      donemGetiri6a: "1",
+      donemGetiri1y: "1",
+      donemGetiriyb: "1",
+      donemGetiri3y: "1",
+      donemGetiri5y: "1",
+      basTarih: null,
+      bitTarih: null,
+      getiriOrani: "1"
+    };
+    
+    const tefasResponse = await fetchWithTefasSession('https://www.tefas.gov.tr/api/funds/fonGetiriBazliBilgiGetir', payload);
+    
+    if (!tefasResponse.ok) {
+      throw new Error(`TEFAS API error: ${tefasResponse.status}`);
+    }
+    
+    const data = await tefasResponse.json();
+    
+    // Forward important headers from TEFAS response
+    const headersToForward = [
+      'x-request-id',
+      'apinizer-correlation-id',
+      'cache-control',
+      'strict-transport-security',
+      'x-content-type-options',
+      'x-frame-options',
+      'x-xss-protection'
+    ];
+    for (const header of headersToForward) {
+      const value = tefasResponse.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
+      }
+    }
+    
+    res.json({ data: extractDataFromResponse(data) });
+  } catch (err) {
+    console.error('TEFAS fon getiri bazli error:', err);
+    res.status(500).json({ error: 'Getiri verileri çekilemedi: ' + err.message });
+  }
 });
 
 // API: KAP Data - Fetch from KAP API (proxy)
