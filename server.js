@@ -994,7 +994,7 @@ function extractDataFromResponse(jsonData) {
     if (jsonData === null || jsonData === undefined) return [];
     if (Array.isArray(jsonData)) return jsonData;
     if (typeof jsonData === 'object') {
-        for (const key of ['data', 'Data', 'result', 'Result', 'fonlar', 'items', 'rows']) {
+        for (const key of ['data', 'Data', 'result', 'Result', 'resultList', 'fonlar', 'items', 'rows']) {
             if (jsonData[key] && Array.isArray(jsonData[key])) {
                 return jsonData[key];
             }
@@ -1008,14 +1008,14 @@ function extractDataFromResponse(jsonData) {
 // API: TEFAS - Fon Genel Bilgi Getir (fonGnlBlgSiraliGetir)
 app.post('/api/tefas/fon-gnl-blgsirali', async (req, res) => {
   try {
-    const { fontip, fonkod, bastarih, bitTarih } = req.body;
+    const { fontip, fonTipi, fonkod, bastarih, bitTarih } = req.body;
     
     // Format date from DD.MM.YYYY to YYYYMMDD for TEFAS API
     const basTarih = formatTefasDate(bastarih);
     const bitTarihFormatted = formatTefasDate(bitTarih);
     
     const payload = {
-      fonTipi: fontip || "YAT",
+      fonTipi: fontip || fonTipi || "YAT",
       fonKodu: fonkod || null,
       aramaMetni: null,
       fonTurKod: null,
@@ -1067,11 +1067,11 @@ app.post('/api/tefas/fon-gnl-blgsirali', async (req, res) => {
 // API: TEFAS - Fon Getiri Bazlı Bilgi Getir (fonGetiriBazliBilgiGetir)
 app.post('/api/tefas/fon-getiri-bazli', async (req, res) => {
   try {
-    const { fontip } = req.body;
+    const { fontip, fonTipi } = req.body;
     
     const payload = {
       dil: "TR",
-      fonTipi: fontip || "YAT",
+      fonTipi: fontip || fonTipi || "YAT",
       kurucuKodu: null,
       sfonTurKod: null,
       fonTurAciklama: null,

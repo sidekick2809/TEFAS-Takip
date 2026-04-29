@@ -86,10 +86,8 @@ async function fetchFlowData() {
         return;
     }
 
-    // DEBUG: Use test dates because market may be closed
-    const { formattedThreeDaysAgo: originalToday, currentDate: originalYesterday } = getFlowDates();
-    const formattedThreeDaysAgo = '20260417'; // 7 days ago
-    const currentDate = '20260424'; // today (test date - market closed on 20260426)
+    // Get dynamic dates (yesterday and today)
+    const { formattedThreeDaysAgo, currentDate } = getFlowDates();
     const apiUrl = '/api/tefas/fon-gnl-blgsirali';
 
     const results = [];
@@ -136,13 +134,13 @@ async function fetchFlowData() {
 
                     results.push({
                         code: code,
-                        today: parseFloat(todayData.PORTFOYBUYUKLUK) || 0,
-                        yesterday: parseFloat(yesterdayData.PORTFOYBUYUKLUK) || 0
+                        today: parseFloat(todayData.portfoyBuyukluk) || 0,
+                        yesterday: parseFloat(yesterdayData.portfoyBuyukluk) || 0
                     });
                 } else if (data && data.data && data.data.length === 1) {
                     results.push({
                         code: code,
-                        today: parseFloat(data.data[0].PORTFOYBUYUKLUK) || 0,
+                        today: parseFloat(data.data[0].portfoyBuyukluk) || 0,
                         yesterday: 0
                     });
                 }

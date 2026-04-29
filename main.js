@@ -364,7 +364,7 @@ class TefasDataView {
 
     async getTefasStatusData() {
         const payload = {
-            fonTipi: this.fontip
+            fontip: this.fontip
         };
 
         const req = fetch('/api/tefas/fon-getiri-bazli', {
@@ -379,10 +379,10 @@ class TefasDataView {
         if (res && res.data) {
             const normalized = this.normalizeData(res.data);
             normalized.forEach(item => {
-                const islemDurum = item.islemDurum ?? item.ISLEMDURUM ?? item.islemDurumu ?? item.TEFAS ?? null;
-                if (islemDurum === 0 || islemDurum === '0' || islemDurum === 'HAYIR') {
+                const islemDurum = item.islemDurum ?? item.ISLEMDURUM ?? item.islemDurumu ?? item.ISLEMDURUMU ?? item.TEFAS ?? null;
+                if (islemDurum === 0 || islemDurum === '0' || islemDurum === 'HAYIR' || islemDurum === 'H') {
                     statusMap.set(item.FONKODU, 'HAYIR');
-                } else if (islemDurum === 1 || islemDurum === '1' || islemDurum === 'EVET' || islemDurum === true || islemDurum === 'true') {
+                } else if (islemDurum === 1 || islemDurum === '1' || islemDurum === 'EVET' || islemDurum === 'E' || islemDurum === true || islemDurum === 'true') {
                     statusMap.set(item.FONKODU, 'EVET');
                 } else {
                     statusMap.set(item.FONKODU, 'EVET');
@@ -416,8 +416,8 @@ class TefasDataView {
         const getiri1yCol = getColName('GETIRI1Y');
         const getiri3yCol = getColName('GETIRI3Y');
         const getiri5yCol = getColName('GETIRI5Y');
-        const tefasCol = getColName('TEFASDUR', 'TEFAS');
-        const islemDurumCol = getColName('ISLEMDURUM', 'ISLEMDURUMU');
+        const tefasCol = getColName('TEFASDUR', 'TEFAS_ISLEM', 'TEFAS');
+        const islemDurumCol = getColName('ISLEMDURUM', 'ISLEMDURUMU', 'ISLEM_DURUM');
         
         return dataArray.map(row => {
             const normalized = { ...row };
@@ -436,7 +436,7 @@ class TefasDataView {
             
             if (tefasCol && !normalized.TEFAS) {
                  const tefasVal = String(row[tefasCol]).trim().toLowerCase();
-                 normalized.TEFAS = (tefasVal === 'true' || tefasVal === '1' || tefasVal === 'evet') ? 'EVET' : 'HAYIR';
+                 normalized.TEFAS = (tefasVal === 'true' || tefasVal === '1' || tefasVal === 'evet' || tefasVal === 'e') ? 'EVET' : 'HAYIR';
             }
             if (islemDurumCol && !normalized.ISLEMDURUM) normalized.ISLEMDURUM = row[islemDurumCol];
             return normalized;
