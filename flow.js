@@ -33,30 +33,9 @@ let sessionFlowToday = null;
 let sessionFlowYesterday = null;
 
 function getFlowDates() {
-    // Check for manual overrides in session
     const manualToday = sessionFlowToday;
     const manualYesterday = sessionFlowYesterday;
 
-    if (manualToday && manualYesterday) {
-        // manualToday and manualYesterday are already YYYY-MM-DD format
-        const d1 = new Date(manualToday);
-        const year1 = d1.getFullYear();
-        const month1 = String(d1.getMonth() + 1).padStart(2, '0');
-        const day1 = String(d1.getDate()).padStart(2, '0');
-        const currentDate = `${year1}${month1}${day1}`; // YYYYMMDD format
-
-        const d2 = new Date(manualYesterday);
-        const year2 = d2.getFullYear();
-        const month2 = String(d2.getMonth() + 1).padStart(2, '0');
-        const day2 = String(d2.getDate()).padStart(2, '0');
-        const formattedThreeDaysAgo = `${year2}${month2}${day2}`; // YYYYMMDD format
-
-        return { formattedThreeDaysAgo, currentDate };
-    }
-
-    const now = new Date();
-
-    // Format date as YYYYMMDD for TEFAS API
     const formatDateTEFAS = (d) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -64,19 +43,34 @@ function getFlowDates() {
         return `${year}${month}${day}`;
     };
 
-    const currentDate = formatDateTEFAS(now);
-
-    const threeDaysAgo = new Date(now);
-    const today = now.getDay(); // 0=Pazar, 1=Pazartesi, ...
-
-    if (today === 1) {
-        threeDaysAgo.setDate(now.getDate() - 3);
-    } else {
-        threeDaysAgo.setDate(now.getDate() - 1);
+    if (manualToday && manualYesterday) {
+        const d1 = new Date(manualToday);
+        const d2 = new Date(manualYesterday);
+        return { 
+            formattedYesterday: formatDateTEFAS(d2), 
+            formattedToday: formatDateTEFAS(d1) 
+        };
     }
-    const formattedThreeDaysAgo = formatDateTEFAS(threeDaysAgo);
 
-    return { formattedThreeDaysAgo, currentDate };
+    const now = new Date();
+    // If it's early morning (before 10 AM), TEFAS usually doesn't have today's data yet.
+    // However, the user specifically asked for yesterday/today.
+    // We'll fetch a slightly wider range (last 4 days) to be safe and then pick the best matches.
+    
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    
+    // For the API call, we use a 4-day range to ensure we get at least 2 business days
+    const fourDaysAgo = new Date();
+    fourDaysAgo.setDate(today.getDate() - 4);
+
+    return { 
+        formattedYesterday: formatDateTEFAS(yesterday), 
+        formattedToday: formatDateTEFAS(today),
+        basTarih: formatDateTEFAS(fourDaysAgo),
+        bitTarih: formatDateTEFAS(today)
+    };
 }
 
 async function fetchFlowData() {
@@ -86,7 +80,7 @@ async function fetchFlowData() {
         return;
     }
 
-    const { formattedThreeDaysAgo, currentDate } = getFlowDates();
+    const { formattedYesterday, formattedToday } = getFlowDates();
     const apiUrl = '/api/tefas/fon-gnl-blgsirali';
 
     // Show loading
@@ -97,61 +91,101 @@ async function fetchFlowData() {
     if (btnIcon) btnIcon.style.display = 'none';
 
     try {
-        // Fetch both YAT and BES (EMK) fund data in bulk
-        const fetchForType = async (fonTipi) => {
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fontip: fonTipi,
-                        fonkod: null,
-                        bastarih: formattedThreeDaysAgo,
-                        bitTarih: currentDate
-                    })
-                });
-                if (!response.ok) return [];
-                const result = await response.json();
-                return (result && result.data && Array.isArray(result.data)) ? result.data : [];
-            } catch (err) {
-                console.error(`Error fetching ${fonTipi}:`, err);
-                return [];
-            }
+        const fetchForDate = async (targetDate) => {
+            const fetchSingle = async (fonTipi) => {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fontip: fonTipi,
+                            fonkod: null,
+                            bastarih: targetDate,
+                            bitTarih: targetDate
+                        })
+                    });
+                    if (!response.ok) return [];
+                    const result = await response.json();
+                    return (result && result.data && Array.isArray(result.data)) ? result.data : [];
+                } catch (err) {
+                    console.error(`Error fetching ${fonTipi} for ${targetDate}:`, err);
+                    return [];
+                }
+            };
+
+            const [yati, emk] = await Promise.all([fetchSingle('YAT'), fetchSingle('EMK')]);
+            return [...yati, ...emk];
         };
 
-        const [yatiData, emkData] = await Promise.all([
-            fetchForType('YAT'),
-            fetchForType('EMK')
-        ]);
+        // We need data for at least 2 different business days.
+        // We'll fetch today, yesterday, and 2 days ago to be sure we find 2 valid points for every fund.
+        const d1 = new Date();
+        const d2 = new Date(); d2.setDate(d1.getDate() - 1);
+        const d3 = new Date(); d3.setDate(d1.getDate() - 2);
+        const d4 = new Date(); d4.setDate(d1.getDate() - 3);
+        const d5 = new Date(); d5.setDate(d1.getDate() - 4);
 
-        const allData = [...yatiData, ...emkData];
+        const formatDate = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}${month}${day}`;
+        };
 
-        // Set of active fund codes for filtering (uppercase)
+        // If manual dates are set, use them as the primary targets
+        const targetDates = (sessionFlowToday && sessionFlowYesterday) 
+            ? [formatDate(new Date(sessionFlowToday)), formatDate(new Date(sessionFlowYesterday))]
+            : [formatDate(d1), formatDate(d2), formatDate(d3), formatDate(d4), formatDate(d5)];
+
+        const allResults = await Promise.all(targetDates.map(date => fetchForDate(date)));
+        const allData = allResults.flat();
+
         const activeSet = new Set(activeFunds.map(c => c.toUpperCase()));
 
-        // Normalize TEFAS date format (YYYY-MM-DD -> YYYYMMDD)
-        const normalizeDate = (d) => d.replace(/-/g, '');
+        // Robust date normalization
+        const normalizeDate = (d) => {
+            if (!d) return "";
+            if (d.includes('-')) return d.replace(/-/g, ''); // YYYY-MM-DD
+            if (d.includes('.')) { // DD.MM.YYYY
+                const [day, month, year] = d.split('.');
+                return `${year}${month.padStart(2, '0')}${day.padStart(2, '0')}`;
+            }
+            return d;
+        };
 
-        // Group entries by fund code and date
-        const groupedByCode = {}; // { code: { [dateNorm]: entry } }
-
+        const groupedByCode = {}; 
         allData.forEach(entry => {
-            const code = entry.fonKodu ? entry.fonKodu.toUpperCase() : null;
+            const code = entry.fonKodu ? entry.fonKodu.toUpperCase() : (entry.FONKODU || null);
             if (!code || !activeSet.has(code)) return;
 
-            const dateNorm = normalizeDate(entry.tarih);
-            if (!groupedByCode[code]) groupedByCode[code] = {};
-            groupedByCode[code][dateNorm] = entry;
+            const dateNorm = normalizeDate(entry.tarih || entry.TARIH);
+            if (!groupedByCode[code]) groupedByCode[code] = [];
+            
+            if (!groupedByCode[code].some(e => normalizeDate(e.tarih || e.TARIH) === dateNorm)) {
+                groupedByCode[code].push(entry);
+            }
         });
 
         const results = [];
-        for (const [code, byDate] of Object.entries(groupedByCode)) {
-            const todayEntry = byDate[currentDate];
-            const yesterdayEntry = byDate[formattedThreeDaysAgo];
+        for (const [code, entries] of Object.entries(groupedByCode)) {
+            // Sort entries by date descending
+            entries.sort((a, b) => {
+                const d1 = normalizeDate(b.tarih || b.TARIH);
+                const d2 = normalizeDate(a.tarih || a.TARIH);
+                return d1.localeCompare(d2);
+            });
+
+            // "Today" is the latest available entry
+            const todayEntry = entries[0];
+            // "Yesterday" is the one before it
+            const yesterdayEntry = entries[1];
+
             results.push({
                 code: code,
-                today: todayEntry ? parseFloat(todayEntry.portfoyBuyukluk) || 0 : 0,
-                yesterday: yesterdayEntry ? parseFloat(yesterdayEntry.portfoyBuyukluk) || 0 : 0
+                today: todayEntry ? parseFloat(todayEntry.portfoyBuyukluk || todayEntry.PORTFOYBUYUKLUK) || 0 : 0,
+                yesterday: yesterdayEntry ? parseFloat(yesterdayEntry.portfoyBuyukluk || yesterdayEntry.PORTFOYBUYUKLUK) || 0 : 0,
+                todayDate: todayEntry ? (todayEntry.tarih || todayEntry.TARIH) : null,
+                yesterdayDate: yesterdayEntry ? (yesterdayEntry.tarih || yesterdayEntry.TARIH) : null
             });
         }
 
@@ -226,6 +260,15 @@ function renderFlowTable(results) {
             return `<span class="${cssClass}">${num > 0 ? '+' : ''}${num.toFixed(2)}%</span>`;
         };
 
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '-';
+            if (dateStr.includes('-')) {
+                const [y, m, d] = dateStr.split('-');
+                return `${d}.${m}.${y.slice(-2)}`;
+            }
+            return dateStr;
+        };
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
@@ -233,8 +276,14 @@ function renderFlowTable(results) {
                     <strong>${item.code}</strong>
                 </a>
             </td>
-            <td>${item.today.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-            <td>${item.yesterday.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+            <td>
+                <div style="font-weight: 600;">${item.today.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                <div style="font-size: 0.65rem; color: var(--text-muted);">${formatDate(item.todayDate)}</div>
+            </td>
+            <td>
+                <div>${item.yesterday.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                <div style="font-size: 0.65rem; color: var(--text-muted);">${formatDate(item.yesterdayDate)}</div>
+            </td>
             <td>${formatPercent(item.gunYuzde)}</td>
             <td class="${item.netAkis > 1 ? 'val-up' : item.netAkis < -1 ? 'val-down' : 'val-zero'}">
                 ${item.netAkis > 0 ? '+' : ''}${item.netAkis.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
