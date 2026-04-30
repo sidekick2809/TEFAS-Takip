@@ -86,11 +86,8 @@ async function fetchFlowData() {
         return;
     }
 
-    // Get dynamic dates (yesterday and today)
     const { formattedThreeDaysAgo, currentDate } = getFlowDates();
     const apiUrl = '/api/tefas/fon-gnl-blgsirali';
-
-    const results = [];
 
     // Show loading
     refreshFlowBtn.disabled = true;
@@ -100,59 +97,69 @@ async function fetchFlowData() {
     if (btnIcon) btnIcon.style.display = 'none';
 
     try {
-        for (const code of activeFunds) {
+        // Fetch both YAT and BES (EMK) fund data in bulk
+        const fetchForType = async (fonTipi) => {
             try {
-                const fullData = window.fullData || JSON.parse(localStorage.getItem('tefasData')) || [];
-                const besData = JSON.parse(localStorage.getItem('tefasData-bes')) || [];
-
-                let fontip = "YAT";
-                if (besData.find(f => f[0] === code)) fontip = "EMK";
-
-                const payload = {
-                    fontip: fontip,
-                    fonkod: code.toUpperCase(),
-                    bastarih: formattedThreeDaysAgo,
-                    bitTarih: currentDate
-                };
-
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fontip: fonTipi,
+                        fonkod: null,
+                        bastarih: formattedThreeDaysAgo,
+                        bitTarih: currentDate
+                    })
                 });
-
-                if (!response.ok) continue;
-
-                const data = await response.json();
-
-                if (data && data.data && data.data.length >= 2) {
-                    // Today is data[0], Yesterday is data[1]
-                    const todayData = data.data[0];
-                    const yesterdayData = data.data[1];
-
-                    results.push({
-                        code: code,
-                        today: parseFloat(todayData.portfoyBuyukluk) || 0,
-                        yesterday: parseFloat(yesterdayData.portfoyBuyukluk) || 0
-                    });
-                } else if (data && data.data && data.data.length === 1) {
-                    results.push({
-                        code: code,
-                        today: parseFloat(data.data[0].portfoyBuyukluk) || 0,
-                        yesterday: 0
-                    });
-                }
+                if (!response.ok) return [];
+                const result = await response.json();
+                return (result && result.data && Array.isArray(result.data)) ? result.data : [];
             } catch (err) {
-                console.error(`Error fetching flow for ${code}:`, err);
+                console.error(`Error fetching ${fonTipi}:`, err);
+                return [];
             }
+        };
+
+        const [yatiData, emkData] = await Promise.all([
+            fetchForType('YAT'),
+            fetchForType('EMK')
+        ]);
+
+        const allData = [...yatiData, ...emkData];
+
+        // Set of active fund codes for filtering (uppercase)
+        const activeSet = new Set(activeFunds.map(c => c.toUpperCase()));
+
+        // Normalize TEFAS date format (YYYY-MM-DD -> YYYYMMDD)
+        const normalizeDate = (d) => d.replace(/-/g, '');
+
+        // Group entries by fund code and date
+        const groupedByCode = {}; // { code: { [dateNorm]: entry } }
+
+        allData.forEach(entry => {
+            const code = entry.fonKodu ? entry.fonKodu.toUpperCase() : null;
+            if (!code || !activeSet.has(code)) return;
+
+            const dateNorm = normalizeDate(entry.tarih);
+            if (!groupedByCode[code]) groupedByCode[code] = {};
+            groupedByCode[code][dateNorm] = entry;
+        });
+
+        const results = [];
+        for (const [code, byDate] of Object.entries(groupedByCode)) {
+            const todayEntry = byDate[currentDate];
+            const yesterdayEntry = byDate[formattedThreeDaysAgo];
+            results.push({
+                code: code,
+                today: todayEntry ? parseFloat(todayEntry.portfoyBuyukluk) || 0 : 0,
+                yesterday: yesterdayEntry ? parseFloat(yesterdayEntry.portfoyBuyukluk) || 0 : 0
+            });
         }
 
         localStorage.setItem('tefasFlowData-YAT', JSON.stringify(results));
         renderFlowTable(results);
     } catch (e) {
-        console.error(e);
+        console.error('Unexpected error in fetchFlowData:', e);
+        flowBody.innerHTML = '<tr><td colspan="5" class="empty-state">Veri çekilemedi. Lütfen daha sonra tekrar deneyin.</td></tr>';
     } finally {
         refreshFlowBtn.disabled = false;
         if (spinner) spinner.style.display = 'none';

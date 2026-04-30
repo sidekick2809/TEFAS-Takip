@@ -193,6 +193,17 @@ db.exec(`
     )
 `);
 
+// Migration: Add columns to yat_history and bes_history if they are missing
+['yat_history', 'bes_history'].forEach(table => {
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN is_stale INTEGER DEFAULT 0`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN price REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN price_prev REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN price_7d REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN company TEXT`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN is_active TEXT`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN subcategory TEXT`); } catch (e) {}
+});
+
 // Metadata table for timestamps
 db.exec(`
     CREATE TABLE IF NOT EXISTS tefas_metadata (
@@ -568,7 +579,8 @@ app.post('/api/tefas-data', (req, res) => {
         replace(data);
         res.json({ success: true, updatedAt: now });
     } catch (err) {
-        res.status(500).json({ error: 'Veri kaydedilemedi' });
+        console.error('TEFAS data save error:', err);
+        res.status(500).json({ error: 'Veri kaydedilemedi: ' + err.message });
     }
 });
 

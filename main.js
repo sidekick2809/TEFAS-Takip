@@ -229,35 +229,31 @@ class TefasDataView {
 
         try {
             const tefasStatusMap = await this.getTefasStatusData();
-            // DEBUG: Use test dates because market is closed on 2026-04-26
             const { todayTefas, sevenDaysAgoTefas, targetDayTefas } = getFormattedDates();
-            const todayTest = '20260424';
-            const yesterdayTest = '20260422'; 
-            const sevenDaysTest = '20260417';
 
             const payloads = [
                 { 
                     url: '/api/tefas/fon-gnl-blgsirali', 
                     body: { 
                         fontip: this.fontip, 
-                        bastarih: todayTest, 
-                        bitTarih: todayTest 
+                        bastarih: todayTefas, 
+                        bitTarih: todayTefas 
                     } 
                 },
                 { 
                     url: '/api/tefas/fon-gnl-blgsirali', 
                     body: { 
                         fontip: this.fontip, 
-                        bastarih: sevenDaysTest, 
-                        bitTarih: yesterdayTest 
+                        bastarih: targetDayTefas, 
+                        bitTarih: targetDayTefas 
                     } 
                 },
                 { 
                     url: '/api/tefas/fon-gnl-blgsirali', 
                     body: { 
                         fontip: this.fontip, 
-                        bastarih: sevenDaysTest, 
-                        bitTarih: yesterdayTest 
+                        bastarih: sevenDaysAgoTefas, 
+                        bitTarih: sevenDaysAgoTefas 
                     } 
                 },
                 { 
@@ -271,12 +267,21 @@ class TefasDataView {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(req.body)
-                }).then(r => r.json()).catch(e => { console.error('Fetch error for', req.url, e); return { data: [] }; })
+                }).then(async r => {
+                    if (!r.ok) {
+                        const err = await r.json().catch(() => ({}));
+                        throw new Error(err.error || `HTTP ${r.status}`);
+                    }
+                    return r.json();
+                }).catch(e => { 
+                    console.error('Fetch error for', req.url, e); 
+                    return { data: [] }; 
+                })
             ));
 
             let todayData = responses[0].data || [];
-            let sevenDaysAgoData = responses[1].data || [];
-            let yesterdayData = responses[2].data || [];
+            let yesterdayData = responses[1].data || [];
+            let sevenDaysAgoData = responses[2].data || [];
             let returnsData = responses[3].data || [];
             
             todayData = this.normalizeData(todayData);
@@ -286,14 +291,6 @@ class TefasDataView {
 
             console.log(`TEFAS ${this.fontip} Response: today=${todayData.length}, yesterday=${yesterdayData.length}, 7days=${sevenDaysAgoData.length}, returns=${returnsData.length}`);
             
-            // Log full responses for debugging
-            console.log('Full API responses:', {
-                today: responses[0],
-                yesterday: responses[1],
-                sevendays: responses[2],
-                returns: responses[3]
-            });
-
             let finalData = this.processAndMergeData(todayData, sevenDaysAgoData, yesterdayData, returnsData, tefasStatusMap);
 
             if (finalData.length === 0) {
@@ -317,13 +314,17 @@ class TefasDataView {
 
             // Also save to server database
             try {
-                await fetch('/api/tefas-data', {
+                const saveRes = await fetch('/api/tefas-data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ data: this.fullData, type: this.fontip })
                 });
+                if (!saveRes.ok) {
+                    const saveErr = await saveRes.json().catch(() => ({}));
+                    console.error('Sunucuya veri kaydedilemedi:', saveErr.error || saveRes.status);
+                }
             } catch (err) {
-                console.log('Sunucuya veri kaydedilemedi:', err.message);
+                console.error('Sunucuya veri kaydedilemedi (network error):', err.message);
             }
 
             if (this.fontip === 'YAT') {
