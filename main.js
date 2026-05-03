@@ -419,6 +419,8 @@ class TefasDataView {
         const getiri5yCol = getColName('GETIRI5Y');
         const tefasCol = getColName('TEFASDUR', 'TEFAS_ISLEM', 'TEFAS');
         const islemDurumCol = getColName('ISLEMDURUM', 'ISLEMDURUMU', 'ISLEM_DURUM');
+        const kisiSayisiCol = getColName('KISISAYISI', 'KISI_SAYISI');
+        const portfoyBuyuklukCol = getColName('PORTFOYBUYUKLUK', 'PORTFOY_BUYUKLUK');
         
         return dataArray.map(row => {
             const normalized = { ...row };
@@ -440,6 +442,8 @@ class TefasDataView {
                  normalized.TEFAS = (tefasVal === 'true' || tefasVal === '1' || tefasVal === 'evet' || tefasVal === 'e') ? 'EVET' : 'HAYIR';
             }
             if (islemDurumCol && !normalized.ISLEMDURUM) normalized.ISLEMDURUM = row[islemDurumCol];
+            if (kisiSayisiCol && !normalized.KISISAYISI) normalized.KISISAYISI = row[kisiSayisiCol];
+            if (portfoyBuyuklukCol && !normalized.PORTFOYBUYUKLUK) normalized.PORTFOYBUYUKLUK = row[portfoyBuyuklukCol];
             return normalized;
         });
     }
@@ -464,7 +468,13 @@ class TefasDataView {
                 ...(t || y || r),
                 FIYAT_Today: priceToday,
                 FIYAT_yesterday: priceYesterday,
-                FIYAT_SevenDaysAgo: s ? s.FIYAT : 0
+                FIYAT_SevenDaysAgo: s ? s.FIYAT : 0,
+                KISISAYISI_Today: t ? t.KISISAYISI : 0,
+                PORTFOYBUYUKLUK_Today: t ? t.PORTFOYBUYUKLUK : 0,
+                KISISAYISI_yesterday: y ? y.KISISAYISI : 0,
+                PORTFOYBUYUKLUK_yesterday: y ? y.PORTFOYBUYUKLUK : 0,
+                KISISAYISI_SevenDaysAgo: s ? s.KISISAYISI : 0,
+                PORTFOYBUYUKLUK_SevenDaysAgo: s ? s.PORTFOYBUYUKLUK : 0
             });
 
             if (r) {
@@ -501,6 +511,8 @@ class TefasDataView {
                 else if (item.FONUNVAN.includes("MADEN")) turC = "MADEN";
                 else if (item.FONUNVAN.includes("GÜMÜŞ")) turC = "GÜMÜŞ";
                 else if (item.FONUNVAN.includes("BANKA")) turC = "BANKA";
+                else if (item.FONUNVAN.includes("BIST 30")) turC = "BIST 30";
+                else if (item.FONUNVAN.includes("BIST 100")) turC = "BIST 100";
             }
 
             const tefasStatus = tefasStatusMap.get(item.FONKODU) || "Bilinmiyor";
@@ -523,7 +535,14 @@ class TefasDataView {
                 tefasStatus,
                 item.FIYAT_Today,
                 item.FIYAT_yesterday,
-                item.FIYAT_SevenDaysAgo
+                item.FIYAT_SevenDaysAgo,
+                null, // Index 18 reserved for is_stale
+                item.KISISAYISI_Today,
+                item.PORTFOYBUYUKLUK_Today,
+                item.KISISAYISI_yesterday,
+                item.PORTFOYBUYUKLUK_yesterday,
+                item.KISISAYISI_SevenDaysAgo,
+                item.PORTFOYBUYUKLUK_SevenDaysAgo
             ]);
         }
         return finalData;

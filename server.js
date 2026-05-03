@@ -165,7 +165,13 @@ db.exec(`
         price REAL,
         price_prev REAL,
         price_7d REAL,
-        is_stale INTEGER DEFAULT 0
+        is_stale INTEGER DEFAULT 0,
+        kisiSayisi REAL,
+        portfoyBuyukluk REAL,
+        kisiSayisi1 REAL,
+        portfoyBuyukluk1 REAL,
+        kisiSayisi7 REAL,
+        portfoyBuyukluk7 REAL
     )
 `);
 
@@ -189,7 +195,13 @@ db.exec(`
         price REAL,
         price_prev REAL,
         price_7d REAL,
-        is_stale INTEGER DEFAULT 0
+        is_stale INTEGER DEFAULT 0,
+        kisiSayisi REAL,
+        portfoyBuyukluk REAL,
+        kisiSayisi1 REAL,
+        portfoyBuyukluk1 REAL,
+        kisiSayisi7 REAL,
+        portfoyBuyukluk7 REAL
     )
 `);
 
@@ -202,6 +214,12 @@ db.exec(`
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN company TEXT`); } catch (e) {}
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN is_active TEXT`); } catch (e) {}
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN subcategory TEXT`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN kisiSayisi REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN portfoyBuyukluk REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN kisiSayisi1 REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN portfoyBuyukluk1 REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN kisiSayisi7 REAL`); } catch (e) {}
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN portfoyBuyukluk7 REAL`); } catch (e) {}
 });
 
 // Metadata table for timestamps
@@ -527,7 +545,9 @@ app.get('/api/tefas-data', (req, res) => {
             r.return1m, r.return3m, r.return6m, r.returnYtd,
             r.return1y, r.return3y, r.return5y, r.category,
             r.subcategory, r.company, r.is_active, r.price,
-            r.price_prev, r.price_7d, r.is_stale === 1
+            r.price_prev, r.price_7d, r.is_stale === 1,
+            r.kisiSayisi, r.portfoyBuyukluk, r.kisiSayisi1,
+            r.portfoyBuyukluk1, r.kisiSayisi7, r.portfoyBuyukluk7
         ]);
 
         res.json({ data: data.length > 0 ? data : null, updatedAt: meta ? meta.updatedAt : null });
@@ -555,13 +575,16 @@ app.post('/api/tefas-data', (req, res) => {
                     return1m, return3m, return6m, returnYtd, 
                     return1y, return3y, return5y, category, 
                     subcategory, company, is_active, price, 
-                    price_prev, price_7d, is_stale
+                    price_prev, price_7d, is_stale,
+                    kisiSayisi, portfoyBuyukluk, kisiSayisi1, 
+                    portfoyBuyukluk1, kisiSayisi7, portfoyBuyukluk7
                 ) VALUES (
                     @c0, @c1, @c2, @c3, 
                     @c4, @c5, @c6, @c7, 
                     @c8, @c9, @c10, @c11, 
                     @c12, @c13, @c14, @c15, 
-                    @c16, @c17, @c18
+                    @c16, @c17, @c18, @c19,
+                    @c20, @c21, @c22, @c23, @c24
                 )
             `);
             for (const row of rows) {
@@ -570,7 +593,9 @@ app.post('/api/tefas-data', (req, res) => {
                     c4: row[4] ?? null, c5: row[5] ?? null, c6: row[6] ?? null, c7: row[7] ?? null,
                     c8: row[8] ?? null, c9: row[9] ?? null, c10: row[10] ?? null, c11: row[11] ?? null,
                     c12: row[12] ?? null, c13: row[13] ?? null, c14: row[14] ?? null, c15: row[15] ?? null,
-                    c16: row[16] ?? null, c17: row[17] ?? null, c18: row[18] ? 1 : 0
+                    c16: row[16] ?? null, c17: row[17] ?? null, c18: row[18] ? 1 : 0,
+                    c19: row[19] ?? null, c20: row[20] ?? null, c21: row[21] ?? null,
+                    c22: row[22] ?? null, c23: row[23] ?? null, c24: row[24] ?? null
                 });
             }
             db.prepare('INSERT OR REPLACE INTO tefas_metadata (type, updatedAt) VALUES (?, ?)').run(fundType, now);

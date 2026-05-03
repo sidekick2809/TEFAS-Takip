@@ -1532,24 +1532,6 @@
               </p>
             </div>
             <div style="margin-left: auto; display: flex; gap: 0.5rem;">
-              <button id="flow-settings-btn" class="icon-btn has-tooltip" data-tooltip="Tarih Ayarları">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                  </path>
-                </svg>
-              </button>
-              <button id="refresh-flow-btn" class="icon-btn has-tooltip" data-tooltip="Verileri Güncelle">
-                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                <div class="loader-spinner" style="display: none; width: 20px; height: 20px;"></div>
-              </button>
             </div>
           </div>
         </div>
@@ -1566,7 +1548,7 @@
             </thead>
             <tbody id="flow-body">
               <tr>
-                <td colspan="5" class="empty-state">Veri yüklemek için "Verileri Güncelle" butonuna tıklayın.</td>
+                <td colspan="5" class="empty-state">Verileri ana sayfadan güncelleyin.</td>
               </tr>
             </tbody>
           </table>
@@ -1691,29 +1673,6 @@
       </div>
     </div>
   </div>
-  <div id="flow-settings-modal" class="global-overlay" style="display: none;">
-    <div class="portfolio-add-panel" style="width: 90%; max-width: 400px;">
-      <div class="add-panel-header">
-        <h3>Para Akışı Tarih Ayarları</h3>
-        <p class="add-panel-hint">Para akışı için kullanılacak "Bugün" ve "Dün" tarihlerini ayarlayın.</p>
-      </div>
-      <div class="settings-form" style="display: flex; flex-direction: column; gap: 1rem;">
-        <div class="form-group">
-          <label for="flow-setting-today">Bugünün Tarihi (currentDate)</label>
-          <input type="date" id="flow-setting-today" class="form-input">
-        </div>
-        <div class="form-group">
-          <label for="flow-setting-yesterday">Dünkü Tarih (formattedThreeDaysAgo)</label>
-          <input type="date" id="flow-setting-yesterday" class="form-input">
-        </div>
-        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-          <button id="flow-settings-default-btn" class="secondary-btn" style="flex: 1;">Varsayılan</button>
-          <button id="flow-settings-save-btn" class="primary-btn" style="flex: 1;">Kaydet</button>
-          <button id="flow-settings-close-btn" class="secondary-btn outline" style="flex: 1;">Kapat</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- FVT Fund Detail Modal -->
   <div id="fvt-fund-modal" class="global-overlay" style="display: none;">
@@ -1757,71 +1716,6 @@
       <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
         <button id="fvt-fund-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
       </div>
-    </div>
-  </div>
-  <script type="module" src="./main.js"></script>
-  <div id="tab-kap" class="tab-panel">
-    <div class="toolbar fade-in">
-      <div style="display: flex; align-items: center; gap: 1rem; width: 100%;">
-        <div style="display:flex; flex-direction:column;">
-          <h3 style="margin: 0;">KAP Bildirim</h3>
-          <p class="subtitle" style="margin: 0; font-size: 0.8rem;">Kamuyu Aydınlatma Platformu yatırım fonu
-            bildirimleri.
-          </p>
-        </div>
-        <div style="margin-left: auto; display: flex; gap: 0.5rem;">
-          <button id="kap-fetch-btn" class="primary-btn has-tooltip" data-tooltip="KAP'tan Veri Çek">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path
-                d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-            </svg>
-            <span>Çek</span>
-          </button>
-          <button id="kap-refresh-btn" class="icon-btn has-tooltip" data-tooltip="Tablodan Verileri Yenile">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-    <!-- KAP Date Filter -->
-    <div style="display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap; align-items: center;">
-      <div class="form-group" style="margin: 0;">
-        <label for="kap-from-date" style="font-size: 0.75rem;">Başlangıç Tarihi</label>
-        <input type="date" id="kap-from-date" class="form-input" style="padding: 0.4rem 0.6rem;">
-      </div>
-      <div class="form-group" style="margin: 0;">
-        <label for="kap-to-date" style="font-size: 0.75rem;">Bitiş Tarihi</label>
-        <input type="date" id="kap-to-date" class="form-input" style="padding: 0.4rem 0.6rem;">
-      </div>
-      <button id="kap-filter-btn" class="secondary-btn outline"
-        style="margin-top: auto; padding: 0.4rem 1rem;">Filtrele</button>
-      <button id="kap-clear-filter-btn" class="secondary-btn outline"
-        style="margin-top: auto; padding: 0.4rem 1rem;">Temizle</button>
-    </div>
-    <!-- KAP Notifications Table -->
-    <div class="table-container fade-in" style="margin-top: 1rem;">
-      <table id="kap-table" class="data-table">
-        <thead>
-          <tr>
-            <th>Kod</th>
-            <th>Yayın Tarihi</th>
-            <th>Başlık</th>
-            <th>Şirket</th>
-            <th>Özet</th>
-            <th>Kategori</th>
-            <th>İşlem</th>
-          </tr>
-        </thead>
-        <tbody id="kap-body">
-          <tr>
-            <td colspan="7" class="empty-state">KAP bildirimlerini çekmek için "Çek" butonuna tıklayın.</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
   <script type="module" src="./main.js"></script>
