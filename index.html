@@ -1718,6 +1718,39 @@
       </div>
     </div>
   </div>
+
+  <!-- Fund Chart Modal -->
+  <div id="fund-chart-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 95%; max-width: 800px;">
+      <div class="add-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 id="chart-modal-title">Fon Grafiği</h3>
+          <p class="add-panel-hint" id="chart-modal-subtitle">Son 12 aylık fiyat değişimi</p>
+        </div>
+        <div class="chart-range-selector" style="display: flex; gap: 8px;">
+          <button class="range-btn" data-range="1">1AY</button>
+          <button class="range-btn" data-range="3">3AY</button>
+          <button class="range-btn" data-range="6">6AY</button>
+          <button class="range-btn active" data-range="12">1 YIL</button>
+        </div>
+      </div>
+      <div id="chart-modal-content" style="padding: 1rem; min-height: 400px; position: relative;">
+        <div id="chart-loading" style="text-align: center; padding: 2rem;">
+          <div class="loader-spinner"></div>
+          <p style="margin-top: 1rem;">Grafik verileri yükleniyor...</p>
+        </div>
+        <div id="chart-container" style="display: none; height: 400px;">
+          <canvas id="fund-history-chart"></canvas>
+        </div>
+        <div id="chart-error" style="display: none; text-align: center; padding: 2rem; color: var(--text-error);">
+          <p>Grafik verisi yüklenirken hata oluştu.</p>
+        </div>
+      </div>
+      <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
+        <button id="chart-modal-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
+      </div>
+    </div>
+  </div>
   <script type="module" src="./main.js"></script>
   <script type="module" src="./transactions.js"></script>
   <script type="module" src="./flow.js"></script>

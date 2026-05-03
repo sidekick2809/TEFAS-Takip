@@ -239,6 +239,69 @@ th.fav-col {
   transform: scale(1.1);
 }
 
+.chart-btn {
+  background-color: #28a745;
+  color: white !important;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+}
+
+.chart-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.range-btn {
+  background: var(--perf-neutral);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.range-btn:hover {
+  background: var(--border-color);
+}
+
+.range-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.dashboard-chart-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.dashboard-chart-btn:hover {
+  background: var(--perf-neutral);
+  opacity: 1;
+  color: #05cd99;
+}
+
 * {
   margin: 0;
   padding: 0;

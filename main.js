@@ -575,7 +575,10 @@ class TefasDataView {
                     </button>
                 </td>
                 <td class="has-tooltip" data-tooltip="${row[1]}">
-                    <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
+                        <button class="chart-btn" data-code="${row[0]}" title="Grafik Göster">Grafik</button>
+                    </div>
                     <div class="wrap-text unvan-text fund-name-sub">${row[1]}</div>
                 </td>
                 <td>${formatPercent(row[2])}</td>
@@ -601,6 +604,13 @@ class TefasDataView {
             favBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleFavorite(code);
+            });
+
+            // Add click handler for chart button
+            const chartBtn = tr.querySelector('.chart-btn');
+            chartBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showChart(code, row[1]);
             });
 
             this.tbody.appendChild(tr);
@@ -783,6 +793,50 @@ class TefasDataView {
         const name = `TEFAS_${this.fontip}_Veriler_` + new Date().toISOString().split('T')[0];
         if (type === 'csv') downloadCSV(data, headers, name);
         else downloadXLS(data, headers, name);
+    }
+
+    async showChart(code, name) {
+        const modal = document.getElementById('fund-chart-modal');
+        const title = document.getElementById('chart-modal-title');
+        const subtitle = document.getElementById('chart-modal-subtitle');
+        const loading = document.getElementById('chart-loading');
+        const container = document.getElementById('chart-container');
+        const error = document.getElementById('chart-error');
+        const ctx = document.getElementById('fund-history-chart');
+
+        if (!modal) return;
+
+        title.textContent = `${code} - Grafik`;
+        subtitle.textContent = name;
+        modal.style.display = 'flex';
+        loading.style.display = 'block';
+        container.style.display = 'none';
+        error.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/tefas/fon-fiyat-bilgi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fonKodu: code, dil: "TR", periyod: 12 })
+            });
+
+            if (!response.ok) throw new Error('API hatası');
+            const result = await response.json();
+
+            if (!result || !result.resultList || result.resultList.length === 0) {
+                throw new Error('Veri bulunamadı');
+            }
+
+            window.currentFundChartData = result.resultList;
+            loading.style.display = 'none';
+            window.renderFundChart(12); // Default to 1 year
+
+        } catch (err) {
+            console.error('Grafik hatası:', err);
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.querySelector('p').textContent = 'Grafik verisi yüklenirken hata oluştu: ' + err.message;
+        }
     }
 }
 
@@ -1052,9 +1106,12 @@ class FVTDataView {
                     </button>
                 </td>
                 <td class="has-tooltip" data-tooltip="${row.fon_adi || ''}">
-                    <a href="${linkUrl}" target="_blank" class="fund-code-link">
-                        <strong>${row.fon_kodu || ''}</strong>
-                    </a>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <a href="${linkUrl}" target="_blank" class="fund-code-link">
+                            <strong>${row.fon_kodu || ''}</strong>
+                        </a>
+                        <button class="chart-btn" data-code="${row.fon_kodu}" title="Grafik Göster">Grafik</button>
+                    </div>
                     <div class="wrap-text unvan-text fund-name-sub">${row.fon_adi || ''}</div>
                 </td>
                 <td>${row.kategoriAdi || ''}</td>
@@ -1075,6 +1132,13 @@ class FVTDataView {
             favBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleFavorite(code);
+            });
+
+            // Add click handler for chart button
+            const chartBtn = tr.querySelector('.chart-btn');
+            chartBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showChart(code, row.fon_adi);
             });
 
             this.tbody.appendChild(tr);
@@ -1285,6 +1349,50 @@ class FVTDataView {
         if (this.favFilterBtn) this.favFilterBtn.classList.remove('active');
         this.initFilters();
         this.applyFilters();
+    }
+
+    async showChart(code, name) {
+        const modal = document.getElementById('fund-chart-modal');
+        const title = document.getElementById('chart-modal-title');
+        const subtitle = document.getElementById('chart-modal-subtitle');
+        const loading = document.getElementById('chart-loading');
+        const container = document.getElementById('chart-container');
+        const error = document.getElementById('chart-error');
+        const ctx = document.getElementById('fund-history-chart');
+
+        if (!modal) return;
+
+        title.textContent = `${code} - Grafik`;
+        subtitle.textContent = name;
+        modal.style.display = 'flex';
+        loading.style.display = 'block';
+        container.style.display = 'none';
+        error.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/tefas/fon-fiyat-bilgi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fonKodu: code, dil: "TR", periyod: 12 })
+            });
+
+            if (!response.ok) throw new Error('API hatası');
+            const result = await response.json();
+
+            if (!result || !result.resultList || result.resultList.length === 0) {
+                throw new Error('Veri bulunamadı');
+            }
+
+            window.currentFundChartData = result.resultList;
+            loading.style.display = 'none';
+            window.renderFundChart(12); // Default to 1 year
+
+        } catch (err) {
+            console.error('Grafik hatası:', err);
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.querySelector('p').textContent = 'Grafik verisi yüklenirken hata oluştu: ' + err.message;
+        }
     }
 }
 
@@ -1809,3 +1917,147 @@ document.addEventListener('click', (e) => {
     }
 });
     
+// Fund Chart Modal Close
+document.getElementById('chart-modal-close-btn')?.addEventListener('click', () => {
+    document.getElementById('fund-chart-modal').style.display = 'none';
+});
+
+window.currentFundChartData = [];
+
+window.renderFundChart = function(months = 12) {
+    const data = window.currentFundChartData;
+    if (!data || data.length === 0) return;
+
+    const ctx = document.getElementById('fund-history-chart');
+    const container = document.getElementById('chart-container');
+    
+    // Approx 21 trading days per month
+    const pointsToShow = months === 12 ? data.length : Math.min(data.length, months * 21);
+    const displayData = data.slice(-pointsToShow);
+    
+    const labels = displayData.map(item => item.tarih);
+    const prices = displayData.map(item => item.fiyat);
+    
+    container.style.display = 'block';
+
+    if (window.fundHistoryChartInstance) {
+        window.fundHistoryChartInstance.destroy();
+    }
+
+    window.fundHistoryChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Fiyat (TL)',
+                data: prices,
+                borderColor: '#05cd99',
+                backgroundColor: 'rgba(5, 205, 153, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: months <= 3 ? 3 : 1,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(17, 28, 68, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#1b254b',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Fiyat: ' + context.parsed.y.toLocaleString('tr-TR', { minimumFractionDigits: 4 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        color: '#a3aed0',
+                        maxRotation: 45,
+                        minRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: months <= 3 ? 10 : 12
+                    }
+                },
+                y: {
+                    grid: { color: 'rgba(163, 174, 208, 0.1)' },
+                    ticks: { 
+                        color: '#a3aed0',
+                        callback: function(value) {
+                            return value.toLocaleString('tr-TR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Update active class on range buttons
+    document.querySelectorAll('.range-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.range) === months);
+    });
+};
+
+// Global Range Button Listeners
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.range-btn');
+    if (btn) {
+        const months = parseInt(btn.dataset.range);
+        window.renderFundChart(months);
+    }
+});
+
+window.showFundChart = async function(code, name) {
+    const modal = document.getElementById('fund-chart-modal');
+    const title = document.getElementById('chart-modal-title');
+    const subtitle = document.getElementById('chart-modal-subtitle');
+    const loading = document.getElementById('chart-loading');
+    const container = document.getElementById('chart-container');
+    const error = document.getElementById('chart-error');
+
+    if (!modal) return;
+
+    title.textContent = `${code} - Grafik`;
+    subtitle.textContent = name;
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    container.style.display = 'none';
+    error.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/tefas/fon-fiyat-bilgi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fonKodu: code, dil: "TR", periyod: 12 })
+        });
+
+        if (!response.ok) throw new Error('API hatası');
+        const result = await response.json();
+
+        if (!result || !result.resultList || result.resultList.length === 0) {
+            throw new Error('Veri bulunamadı');
+        }
+
+        window.currentFundChartData = result.resultList;
+        loading.style.display = 'none';
+        if (window.renderFundChart) window.renderFundChart(12);
+
+    } catch (err) {
+        console.error('Grafik hatası:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.querySelector('p').textContent = 'Grafik verisi yüklenirken hata oluştu: ' + err.message;
+    }
+};

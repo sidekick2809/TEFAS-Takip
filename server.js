@@ -1160,6 +1160,30 @@ app.post('/api/tefas/fon-getiri-bazli', async (req, res) => {
   }
 });
 
+// API: TEFAS - Fon Fiyat Bilgi Getir (History Chart)
+app.post('/api/tefas/fon-fiyat-bilgi', async (req, res) => {
+  try {
+    const { fonKodu, dil, periyod } = req.body;
+    const payload = {
+      fonKodu: fonKodu || "DFI",
+      dil: dil || "TR",
+      periyod: periyod || 12
+    };
+    
+    const tefasResponse = await fetchWithTefasSession('https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir', payload);
+    
+    if (!tefasResponse.ok) {
+      throw new Error(`TEFAS API error: ${tefasResponse.status}`);
+    }
+    
+    const data = await tefasResponse.json();
+    res.json(data);
+  } catch (err) {
+    console.error('TEFAS fon fiyat bilgi error:', err);
+    res.status(500).json({ error: 'Grafik verileri çekilemedi: ' + err.message });
+  }
+});
+
 // API: KAP Data - Fetch from KAP API (proxy)
 app.post('/api/kap-data/fetch', async (req, res) => {
     try {

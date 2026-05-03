@@ -564,9 +564,14 @@ function renderDashboard() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="has-tooltip" data-tooltip="${row.name}">
-                <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row.code}" target="_blank" class="fund-link">
-                    <strong>${row.code}</strong>
-                </a>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row.code}" target="_blank" class="fund-link">
+                        <strong>${row.code}</strong>
+                    </a>
+                    <button class="dashboard-chart-btn" data-code="${row.code}" data-name="${row.name}" title="Grafik Göster">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    </button>
+                </div>
                 <div class="wrap-text unvan-text fund-name-sub">${row.name}</div>
             </td>
             <td class="detail-col">₺${fmtNum(row.currentPrice, 4)}</td>
@@ -587,6 +592,15 @@ function renderDashboard() {
             <td class="advanced-hidden">${fmtPercent(row.yil1)}</td>
             <td>%${fmtNum(weight * 100, 2)}</td>
         `;
+        
+        // Attach chart listener
+        tr.querySelector('.dashboard-chart-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.showFundChart) {
+                window.showFundChart(row.code, row.name);
+            }
+        });
+
         dashboardBody.appendChild(tr);
     });
 
