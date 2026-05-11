@@ -2685,3 +2685,63 @@ th.sortable.sort-desc::after {
     grid-template-columns: 1fr 1fr !important;
   }
 }
+/* Distribution Table Styles */
+.distribution-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.distribution-table th, 
+.distribution-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+}
+
+.distribution-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.distribution-table tr:last-child td {
+    border-bottom: none;
+}
+
+.distribution-table tr:hover {
+    background-color: var(--bg-card);
+}
+
+.dist-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dist-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.dashboard-dist-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.dashboard-dist-btn:hover {
+    background: var(--bg-card);
+    color: var(--primary);
+}

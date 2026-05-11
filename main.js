@@ -578,6 +578,7 @@ class TefasDataView {
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
                         <button class="chart-btn" data-code="${row[0]}" title="Grafik Göster">Grafik</button>
+                        <button class="dist-btn" data-code="${row[0]}" data-name="${row[1]}" title="Varlık Dağılımı Göster">Dağılım</button>
                     </div>
                     <div class="wrap-text unvan-text fund-name-sub">${row[1]}</div>
                 </td>
@@ -611,6 +612,13 @@ class TefasDataView {
             chartBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.showChart(code, row[1]);
+            });
+
+            // Add click handler for distribution button
+            const distBtn = tr.querySelector('.dist-btn');
+            distBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.showDistributionModal(code, row[1]);
             });
 
             this.tbody.appendChild(tr);
@@ -829,7 +837,7 @@ class TefasDataView {
 
             window.currentFundChartData = result.resultList;
             loading.style.display = 'none';
-            window.renderFundChart(12); // Default to 1 year
+            window.renderFundChart(1); // Default to 1 month
 
         } catch (err) {
             console.error('Grafik hatası:', err);
@@ -1385,7 +1393,7 @@ class FVTDataView {
 
             window.currentFundChartData = result.resultList;
             loading.style.display = 'none';
-            window.renderFundChart(12); // Default to 1 year
+            window.renderFundChart(1); // Default to 1 month
 
         } catch (err) {
             console.error('Grafik hatası:', err);
@@ -1924,7 +1932,7 @@ document.getElementById('chart-modal-close-btn')?.addEventListener('click', () =
 
 window.currentFundChartData = [];
 
-window.renderFundChart = function(months = 12) {
+window.renderFundChart = function(months = 1) {
     const data = window.currentFundChartData;
     if (!data || data.length === 0) return;
 
@@ -2052,7 +2060,7 @@ window.showFundChart = async function(code, name) {
 
         window.currentFundChartData = result.resultList;
         loading.style.display = 'none';
-        if (window.renderFundChart) window.renderFundChart(12);
+        if (window.renderFundChart) window.renderFundChart(1);
 
     } catch (err) {
         console.error('Grafik hatası:', err);
@@ -2061,3 +2069,208 @@ window.showFundChart = async function(code, name) {
         error.querySelector('p').textContent = 'Grafik verisi yüklenirken hata oluştu: ' + err.message;
     }
 };
+
+// Varlık Dağılımı Güncelleme Butonu
+document.getElementById('fetch-dist-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('fetch-dist-btn');
+    const icon = btn.querySelector('.btn-icon');
+    const spinner = btn.querySelector('.loader-spinner');
+    
+    if (typeof hideStatus === 'function') hideStatus();
+    btn.disabled = true;
+    if (icon) icon.style.display = 'none';
+    if (spinner) spinner.style.display = 'block';
+
+    try {
+        const todayInput = document.getElementById('setting-today');
+        let formattedDate = '';
+        
+        if (todayInput && todayInput.value) {
+            formattedDate = todayInput.value.replace(/-/g, '');
+        } else {
+            const now = new Date();
+            formattedDate = now.getFullYear().toString() + 
+                            (now.getMonth() + 1).toString().padStart(2, '0') + 
+                            now.getDate().toString().padStart(2, '0');
+        }
+
+        const payload = {
+            "fonTipi":"YAT",
+            "fonKodu":null,
+            "aramaMetni":null,
+            "fonTurKod":null,
+            "fonGrubu":null,
+            "sfonTurKod":null,
+            "basTarih":formattedDate,
+            "bitTarih":formattedDate,
+            "basSira":1,
+            "bitSira":2500,
+            "fonTurAciklama":null,
+            "dil":"TR",
+            "kurucuKod":null,
+            "sFonTurKod":"",
+            "fonKod":null,
+            "fonGrup":"",
+            "fonUnvanTip":""
+        };
+
+        const response = await fetch('/api/tefas/dagilimSiraliGetirT', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (typeof showStatus === 'function') {
+            showStatus(`Varlık dağılım verileri güncellendi. (${result.count} fon)`);
+        } else {
+            alert(`Varlık dağılım verileri güncellendi. (${result.count} fon)`);
+        }
+
+    } catch (error) {
+        console.error('Varlık dağılımı güncelleme hatası:', error);
+        if (typeof showStatus === 'function') {
+            showStatus('Varlık dağılımı güncellenirken hata oluştu: ' + error.message, true);
+        } else {
+            alert('Hata: ' + error.message);
+        }
+    } finally {
+        btn.disabled = false;
+        if (icon) icon.style.display = 'block';
+        if (spinner) spinner.style.display = 'none';
+    }
+});
+
+// Varlık Dağılımı Modalını Göster
+window.showDistributionModal = async function(code, name) {
+    const modal = document.getElementById('distribution-modal');
+    const title = document.getElementById('dist-modal-title');
+    const subtitle = document.getElementById('dist-modal-subtitle');
+    const loading = document.getElementById('dist-modal-loading');
+    const content = document.getElementById('dist-modal-content');
+    const chartContainer = document.getElementById('dist-modal-chart-container');
+    const error = document.getElementById('dist-modal-error');
+    const tbody = document.getElementById('dist-modal-body');
+
+    if (!modal) return;
+
+    title.textContent = `${code} - Varlık Dağılımı`;
+    subtitle.textContent = name;
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    chartContainer.style.display = 'none';
+    error.style.display = 'none';
+    tbody.innerHTML = '';
+
+    if (window.distPieChartInstance) {
+        window.distPieChartInstance.destroy();
+    }
+
+    try {
+        const response = await fetch(`/api/tefas/distribution/${code}`);
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'Veri bulunamadı');
+        }
+
+        const data = await response.json();
+        
+        if (!data.distribution || data.distribution.length === 0) {
+            throw new Error('Bu fon için dağılım verisi bulunamadı.');
+        }
+
+        const chartLabels = [];
+        const chartValues = [];
+        const chartColors = [
+            '#4318FF', '#6AD2FF', '#EFF4FB', '#111c44', '#7551FF', 
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+            '#8E44AD', '#2980B9', '#27AE60', '#F39C12', '#D35400'
+        ];
+
+        data.distribution.forEach(item => {
+            const isBilFiyat = item.key === 'bilFiyat';
+            const tr = document.createElement('tr');
+            
+            let displayValue = '';
+            if (isBilFiyat) {
+                // bilFiyat is TL
+                const val = parseFloat(item.value);
+                displayValue = '₺' + val.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+                // Others are percent
+                displayValue = '%' + item.value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                chartLabels.push(item.label);
+                chartValues.push(item.value);
+            }
+
+            tr.innerHTML = `
+                <td>${item.label}</td>
+                <td style="text-align: right;"><strong>${displayValue}</strong></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Render Chart (exclude bilFiyat)
+        if (chartValues.length > 0) {
+            const ctx = document.getElementById('dist-pie-chart').getContext('2d');
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            
+            window.distPieChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        data: chartValues,
+                        backgroundColor: chartColors.slice(0, chartLabels.length),
+                        borderWidth: 2,
+                        borderColor: isLight ? '#fff' : '#111c44',
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: isLight ? '#1B2559' : '#A3AED0',
+                                font: { size: 10, family: 'Inter' },
+                                boxWidth: 10,
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(17, 28, 68, 0.9)',
+                            callbacks: {
+                                label: (context) => ` ${context.label}: %${context.parsed.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+            chartContainer.style.display = 'block';
+        }
+
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+    } catch (err) {
+        console.error('Dağılım modalı hatası:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.querySelector('p').textContent = err.message;
+    }
+};
+
+// Dağılım Modalı Kapatma
+document.getElementById('dist-modal-close-btn')?.addEventListener('click', () => {
+    document.getElementById('distribution-modal').style.display = 'none';
+});

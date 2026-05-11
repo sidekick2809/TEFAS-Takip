@@ -134,6 +134,72 @@ db.exec(`
     )
 `);
 
+// Create Varlikdagilimi table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS Varlikdagilimi (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        fonKodu   TEXT,
+        fonUnvan  TEXT,
+        tarih     TEXT,
+        bb        REAL,
+        byf       REAL,
+        d         REAL,
+        db        REAL,
+        bpp       REAL,
+        btaa      REAL,
+        btas      REAL,
+        dt        REAL,
+        dot       REAL,
+        eut       REAL,
+        fb        REAL,
+        fkb       REAL,
+        gas       REAL,
+        gsykb     REAL,
+        gsyy      REAL,
+        gykb      REAL,
+        gyy       REAL,
+        hb        REAL,
+        hs        REAL,
+        kba       REAL,
+        kh        REAL,
+        khau      REAL,
+        khd       REAL,
+        khtl      REAL,
+        kks       REAL,
+        kksd      REAL,
+        kkstl     REAL,
+        kksyd     REAL,
+        km        REAL,
+        kmbyf     REAL,
+        kmkba     REAL,
+        kmkks     REAL,
+        kibd      REAL,
+        osks      REAL,
+        ost       REAL,
+        r         REAL,
+        t         REAL,
+        tpp       REAL,
+        tr        REAL,
+        vdm       REAL,
+        vm        REAL,
+        vmau      REAL,
+        vmd       REAL,
+        vmtl      REAL,
+        vint      REAL,
+        yba       REAL,
+        ybkb      REAL,
+        ybosb     REAL,
+        ybyf      REAL,
+        yhs       REAL,
+        ymk       REAL,
+        yyf       REAL,
+        oksyd     REAL,
+        osdb      REAL,
+        bilFiyat  TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+`);
+
 // Helper function to format date from DD.MM.YYYY to YYYYMMDD
 function formatTefasDate(dateStr) {
   if (!dateStr) return "";
@@ -143,6 +209,83 @@ function formatTefasDate(dateStr) {
   }
   return dateStr.replace(/\./g, '');
 }
+
+// Create Kisaltmalar table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS Kisaltmalar (
+        kisaltma TEXT PRIMARY KEY,
+        aciklama TEXT
+    )
+`);
+
+// Populate Kisaltmalar table
+const populateKisaltmalar = () => {
+    const data = [
+        ['bb', 'Banka Bonosu'],
+        ['bilFiyat', 'Toplam Değer / Bilanço Fiyatı'],
+        ['bpp', 'Borsa Para Piyasası'],
+        ['btaa', 'Banka Temsilci Aracı Alım'],
+        ['btas', 'Banka Temsilci Aracı Satım'],
+        ['byf', 'Borsa Yatırım Fonları'],
+        ['d', 'Döviz (Genel)'],
+        ['db', 'Devlet Borçlanma Araçları'],
+        ['dot', 'Diğer Opsiyon Primleri'],
+        ['dt', 'Devlet Tahvili'],
+        ['eut', 'Eurobond (Dış Borçlanma Aracı)'],
+        ['fb', 'Finansman Bonosu'],
+        ['fkb', 'Fon Kabul Bakiyesi'],
+        ['fonKodu', 'Fonun İşlem Kodu'],
+        ['fonUnvan', 'Fonun Tam Adı'],
+        ['gas', 'Altın ve Kıymetli Madenler'],
+        ['gsykb', 'Girişim Sermayesi Yatırım Ortaklığı Kira Sertifikası'],
+        ['gsyy', 'Girişim Sermayesi Yatırım Fonu'],
+        ['gykb', 'Gayrimenkul Yatırım Ortaklığı Kira Sertifikası'],
+        ['gyy', 'Gayrimenkul Yatırım Fonu'],
+        ['hb', 'Hazine Bonosu'],
+        ['hs', 'Hisse Senedi'],
+        ['kba', 'Kamu Borçlanma Araçları'],
+        ['kh', 'Katılım Hesabı'],
+        ['khau', 'Katılım Hesabı (Altın)'],
+        ['khd', 'Katılım Hesabı (Döviz)'],
+        ['khtl', 'Katılım Hesabı (TL)'],
+        ['kibd', 'Kamu İç Borçlanma Araçları (Döviz)'],
+        ['kks', 'Kamu Kira Sertifikaları'],
+        ['kksd', 'Kamu Kira Sertifikası (Döviz)'],
+        ['kkstl', 'Kamu Kira Sertifikası (TL)'],
+        ['kksyd', 'Kamu Kira Sertifikası (Yabancı Para/Dış)'],
+        ['km', 'Kıymetli Madenler'],
+        ['kmbyf', 'Kıymetli Madenler Borsa Yatırım Fonu'],
+        ['kmkba', 'Kıymetli Madenler Kamu Borçlanma Araçları'],
+        ['kmkks', 'Kıymetli Madenler Kamu Kira Sertifikası'],
+        ['oksyd', 'Özel Kira Sertifikası (Yabancı Para)'],
+        ['osdb', 'Özel Sektör Devlet Borçlanma (Benzeri)'],
+        ['osks', 'Özel Sektör Kira Sertifikası'],
+        ['ost', 'Özel Sektör Tahvili'],
+        ['r', 'Repo'],
+        ['t', 'Tahvil (Genel)'],
+        ['tarih', 'Verinin Ait Olduğu Tarih'],
+        ['tpp', 'Takasbank Para Piyasası'],
+        ['tr', 'Ters Repo'],
+        ['vdm', 'Varantlar ve Sertifikalar'],
+        ['vint', 'Vadeli İşlem Nakit Teminatları'],
+        ['vm', 'Vadeli Mevduat'],
+        ['vmau', 'Vadeli Mevduat (Altın)'],
+        ['vmd', 'Vadeli Mevduat (Döviz)'],
+        ['vmtl', 'Vadeli Mevduat (TL)'],
+        ['yba', 'Yabancı Borçlanma Araçları'],
+        ['ybkb', 'Yabancı Borçlanma Araçları Kira Sertifikası'],
+        ['ybosb', 'Yabancı Özel Sektör Borçlanma Araçları'],
+        ['ybyf', 'Yabancı Borsa Yatırım Fonu'],
+        ['yhs', 'Yabancı Hisse Senedi'],
+        ['ymk', 'Yabancı Menkul Kıymetler'],
+        ['yyf', 'Yatırım Fonu Katılma Payları']
+    ];
+    const insert = db.prepare('INSERT OR REPLACE INTO Kisaltmalar (kisaltma, aciklama) VALUES (?, ?)');
+    db.transaction(() => {
+        data.forEach(row => insert.run(row));
+    })();
+};
+populateKisaltmalar();
 
 // TEFAS and BES history tables
 db.exec(`
@@ -1041,6 +1184,142 @@ function extractDataFromResponse(jsonData) {
     }
     return [];
 }
+
+// API: TEFAS Asset Distribution
+app.post('/api/tefas/dagilimSiraliGetirT', async (req, res) => {
+    try {
+        const payload = req.body;
+        const tefasResponse = await fetchWithTefasSession('https://www.tefas.gov.tr/api/funds/dagilimSiraliGetirT', payload);
+        
+        if (!tefasResponse.ok) {
+            return res.status(500).json({ error: `TEFAS API error: ${tefasResponse.status}` });
+        }
+
+        const data = await tefasResponse.json();
+        const list = data.resultList || [];
+        
+        if (list.length > 0) {
+            const insert = db.prepare(`
+                INSERT INTO Varlikdagilimi (
+                    fonKodu, fonUnvan, tarih, bb, byf, d, db, bpp, btaa, btas, dt, dot, eut, fb, fkb, gas, gsykb, gsyy, gykb, gyy, hb, hs, kba, kh, khau, khd, khtl, kks, kksd, kkstl, kksyd, km, kmbyf, kmkba, kmkks, kibd, osks, ost, r, t, tpp, tr, vdm, vm, vmau, vmd, vmtl, vint, yba, ybkb, ybosb, ybyf, yhs, ymk, yyf, oksyd, osdb, bilFiyat
+                ) VALUES (
+                    @fonKodu, @fonUnvan, @tarih, @bb, @byf, @d, @db, @bpp, @btaa, @btas, @dt, @dot, @eut, @fb, @fkb, @gas, @gsykb, @gsyy, @gykb, @gyy, @hb, @hs, @kba, @kh, @khau, @khd, @khtl, @kks, @kksd, @kkstl, @kksyd, @km, @kmbyf, @kmkba, @kmkks, @kibd, @osks, @ost, @r, @t, @tpp, @tr, @vdm, @vm, @vmau, @vmd, @vmtl, @vint, @yba, @ybkb, @ybosb, @ybyf, @yhs, @ymk, @yyf, @oksyd, @osdb, @bilFiyat
+                )
+            `);
+
+            const insertMany = db.transaction((items) => {
+                for (const item of items) {
+                    insert.run({
+                        fonKodu: item.fonKodu || null,
+                        fonUnvan: item.fonUnvan || null,
+                        tarih: item.tarih || null,
+                        bb: item.bb || null,
+                        byf: item.byf || null,
+                        d: item.d || null,
+                        db: item.db || null,
+                        bpp: item.bpp || null,
+                        btaa: item.btaa || null,
+                        btas: item.btas || null,
+                        dt: item.dt || null,
+                        dot: item.dot || null,
+                        eut: item.eut || null,
+                        fb: item.fb || null,
+                        fkb: item.fkb || null,
+                        gas: item.gas || null,
+                        gsykb: item.gsykb || null,
+                        gsyy: item.gsyy || null,
+                        gykb: item.gykb || null,
+                        gyy: item.gyy || null,
+                        hb: item.hb || null,
+                        hs: item.hs || null,
+                        kba: item.kba || null,
+                        kh: item.kh || null,
+                        khau: item.khau || null,
+                        khd: item.khd || null,
+                        khtl: item.khtl || null,
+                        kks: item.kks || null,
+                        kksd: item.kksd || null,
+                        kkstl: item.kkstl || null,
+                        kksyd: item.kksyd || null,
+                        km: item.km || null,
+                        kmbyf: item.kmbyf || null,
+                        kmkba: item.kmkba || null,
+                        kmkks: item.kmkks || null,
+                        kibd: item.kibd || null,
+                        osks: item.osks || null,
+                        ost: item.ost || null,
+                        r: item.r || null,
+                        t: item.t || null,
+                        tpp: item.tpp || null,
+                        tr: item.tr || null,
+                        vdm: item.vdm || null,
+                        vm: item.vm || null,
+                        vmau: item.vmau || null,
+                        vmd: item.vmd || null,
+                        vmtl: item.vmtl || null,
+                        vint: item.vint || null,
+                        yba: item.yba || null,
+                        ybkb: item.ybkb || null,
+                        ybosb: item.ybosb || null,
+                        ybyf: item.ybyf || null,
+                        yhs: item.yhs || null,
+                        ymk: item.ymk || null,
+                        yyf: item.yyf || null,
+                        oksyd: item.oksyd || null,
+                        osdb: item.osdb || null,
+                        bilFiyat: item.bilFiyat ? String(item.bilFiyat) : null
+                    });
+                }
+            });
+            insertMany(list);
+        }
+
+        res.json({ success: true, count: list.length });
+    } catch (err) {
+        console.error('Asset distribution fetch error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// API: Get Fund Distribution Detail
+app.get('/api/tefas/distribution/:code', (req, res) => {
+    try {
+        const { code } = req.params;
+        // Get the latest distribution for the fund
+        const row = db.prepare('SELECT * FROM Varlikdagilimi WHERE fonKodu = ? ORDER BY tarih DESC LIMIT 1').get(code);
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Bu fon için dağılım verisi bulunamadı.' });
+        }
+
+        const kisaltmalar = db.prepare('SELECT * FROM Kisaltmalar').all();
+        const mapping = {};
+        kisaltmalar.forEach(k => mapping[k.kisaltma] = k.aciklama);
+
+        const result = [];
+        // Iterate over keys, skip id, createdAt and internal fields
+        const skipKeys = ['id', 'createdAt', 'tarih', 'fonKodu', 'fonUnvan'];
+        for (const [key, value] of Object.entries(row)) {
+            if (skipKeys.includes(key)) continue;
+            if (value === null || value === 0) continue;
+            
+            result.push({
+                key: key,
+                label: mapping[key] || key,
+                value: value
+            });
+        }
+
+        res.json({
+            fonKodu: row.fonKodu,
+            fonUnvan: row.fonUnvan,
+            tarih: row.tarih,
+            distribution: result
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // API: TEFAS - Fon Genel Bilgi Getir (fonGnlBlgSiraliGetir)
 app.post('/api/tefas/fon-gnl-blgsirali', async (req, res) => {

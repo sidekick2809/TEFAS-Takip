@@ -524,6 +524,13 @@
                 </svg>
                 <div class="loader-spinner" style="display: none; width: 20px; height: 20px;"></div>
               </button>
+              <button id="fetch-dist-btn" class="icon-btn has-tooltip" data-tooltip="Varlık Dağılımın güncelle">
+                <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+                <div class="loader-spinner" style="display: none; width: 20px; height: 20px;"></div>
+              </button>
               <button id="clear-btn" class="icon-btn has-tooltip" data-tooltip="Veritabanını Temizle">
                 <svg class="btn-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1674,6 +1681,42 @@
     </div>
   </div>
 
+  <!-- Distribution Modal -->
+  <div id="distribution-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 90%; max-width: 500px;">
+      <div class="add-panel-header">
+        <h3 id="dist-modal-title">Fon Varlık Dağılımı</h3>
+        <p id="dist-modal-subtitle" class="add-panel-hint"></p>
+      </div>
+      <div id="dist-modal-chart-container" style="display: none; margin-bottom: 1.5rem; height: 250px;">
+        <canvas id="dist-pie-chart"></canvas>
+      </div>
+      <div id="dist-modal-content" class="table-container" style="max-height: 300px; overflow-y: auto; margin-top: 1rem;">
+        <table class="distribution-table">
+          <thead>
+            <tr>
+              <th>Varlık Türü</th>
+              <th style="text-align: right;">Oran (%)</th>
+            </tr>
+          </thead>
+          <tbody id="dist-modal-body">
+            <!-- Dynamically filled -->
+          </tbody>
+        </table>
+      </div>
+      <div id="dist-modal-loading" style="display: none; text-align: center; padding: 2rem;">
+        <div class="loader-spinner" style="width: 40px; height: 40px; margin: 0 auto;"></div>
+        <p style="margin-top: 1rem; color: var(--text-muted);">Veriler yükleniyor...</p>
+      </div>
+      <div id="dist-modal-error" style="display: none; text-align: center; padding: 2rem;">
+        <p style="color: var(--status-error);"></p>
+      </div>
+      <div style="margin-top: 1.5rem;">
+        <button id="dist-modal-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
+      </div>
+    </div>
+  </div>
+
   <!-- FVT Fund Detail Modal -->
   <div id="fvt-fund-modal" class="global-overlay" style="display: none;">
     <div class="portfolio-add-panel" style="width: 90%; max-width: 500px;">
@@ -1725,13 +1768,13 @@
       <div class="add-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h3 id="chart-modal-title">Fon Grafiği</h3>
-          <p class="add-panel-hint" id="chart-modal-subtitle">Son 12 aylık fiyat değişimi</p>
+          <p class="add-panel-hint" id="chart-modal-subtitle">Fiyat değişimi</p>
         </div>
         <div class="chart-range-selector" style="display: flex; gap: 8px;">
-          <button class="range-btn" data-range="1">1AY</button>
+          <button class="range-btn active" data-range="1">1AY</button>
           <button class="range-btn" data-range="3">3AY</button>
           <button class="range-btn" data-range="6">6AY</button>
-          <button class="range-btn active" data-range="12">1 YIL</button>
+          <button class="range-btn" data-range="12">1 YIL</button>
         </div>
       </div>
       <div id="chart-modal-content" style="padding: 1rem; min-height: 400px; position: relative;">

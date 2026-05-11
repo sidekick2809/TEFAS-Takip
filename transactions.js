@@ -571,6 +571,12 @@ function renderDashboard() {
                     <button class="dashboard-chart-btn" data-code="${row.code}" data-name="${row.name}" title="Grafik Göster">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                     </button>
+                    <button class="dashboard-dist-btn" data-code="${row.code}" data-name="${row.name}" title="Varlık Dağılımı Göster">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                            <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                        </svg>
+                    </button>
                 </div>
                 <div class="wrap-text unvan-text fund-name-sub">${row.name}</div>
             </td>
@@ -598,6 +604,14 @@ function renderDashboard() {
             e.stopPropagation();
             if (window.showFundChart) {
                 window.showFundChart(row.code, row.name);
+            }
+        });
+
+        // Attach distribution listener
+        tr.querySelector('.dashboard-dist-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.showDistributionModal) {
+                window.showDistributionModal(row.code, row.name);
             }
         });
 
