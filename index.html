@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script>
     if (localStorage.getItem('tefasTheme') === 'light') {
       document.documentElement.setAttribute('data-theme', 'light');
@@ -1758,6 +1759,36 @@
       </div>
       <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
         <button id="fvt-fund-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fund Content Modal (Bar Chart) -->
+  <div id="fund-content-modal" class="global-overlay" style="display: none;">
+    <div class="portfolio-add-panel" style="width: 95%; max-width: 800px;">
+      <div class="add-panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 id="content-modal-title">Fon İçeriği</h3>
+          <p class="add-panel-hint" id="content-modal-subtitle">Hisse Senedi Dağılımı</p>
+        </div>
+      </div>
+      <div id="content-modal-body-wrapper" style="padding: 1rem; min-height: 400px; position: relative; display: flex; flex-direction: column;">
+        <div id="content-modal-loading" style="text-align: center; padding: 2rem;">
+          <div class="loader-spinner"></div>
+          <p style="margin-top: 1rem;">İçerik verileri yükleniyor...</p>
+        </div>
+        <div id="content-modal-chart-container" style="display: none; height: 380px; flex: 1;">
+          <canvas id="fund-content-bar-chart"></canvas>
+        </div>
+        <div id="content-modal-error" style="display: none; text-align: center; padding: 2rem; color: var(--text-error);">
+          <p>İçerik verisi yüklenirken hata oluştu.</p>
+        </div>
+        <div id="content-modal-date" style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+          Açıklama Tarihi: <span id="content-modal-date-val"></span>
+        </div>
+      </div>
+      <div style="padding: 1rem; border-top: 1px solid var(--border-color);">
+        <button id="content-modal-close-btn" class="secondary-btn outline" style="width: 100%;">Kapat</button>
       </div>
     </div>
   </div>

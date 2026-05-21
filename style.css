@@ -2745,3 +2745,38 @@ th.sortable.sort-desc::after {
     background: var(--bg-card);
     color: var(--primary);
 }
+
+.content-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 4px;
+}
+
+.content-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.dashboard-content-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.dashboard-content-btn:hover {
+    background: var(--bg-card);
+    color: var(--primary);
+}

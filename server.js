@@ -1099,6 +1099,27 @@ app.get('/api/fvt-fund/:code', async (req, res) => {
     }
 });
 
+// API: Get Fund Stock Distribution Detail from FVT
+app.get('/api/fvt/distribution/:code', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const response = await fetch(`https://fvt.com.tr/api/funds/${code}/distribution`, {
+            headers: {
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+        if (!response.ok) {
+            throw new Error(`FVT API error: ${response.status}`);
+        }
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        console.error('FVT distribution fetch error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ==================== TEFAS SESSION MANAGEMENT ====================
 let tefasCookie = '';
 

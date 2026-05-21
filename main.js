@@ -579,6 +579,7 @@ class TefasDataView {
                         <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${row[0]}" target="_blank" class="fund-link"><strong>${row[0]}</strong>${trophy1H}</a>
                         <button class="chart-btn" data-code="${row[0]}" title="Grafik Göster">Grafik</button>
                         <button class="dist-btn" data-code="${row[0]}" data-name="${row[1]}" title="Varlık Dağılımı Göster">Dağılım</button>
+                        <button class="content-btn" data-code="${row[0]}" data-name="${row[1]}" title="Fon İçeriği Göster">İçerik</button>
                     </div>
                     <div class="wrap-text unvan-text fund-name-sub">${row[1]}</div>
                 </td>
@@ -619,6 +620,13 @@ class TefasDataView {
             distBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 window.showDistributionModal(code, row[1]);
+            });
+
+            // Add click handler for content button
+            const contentBtn = tr.querySelector('.content-btn');
+            contentBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.showContentModal(code, row[1]);
             });
 
             this.tbody.appendChild(tr);
@@ -2274,3 +2282,166 @@ window.showDistributionModal = async function(code, name) {
 document.getElementById('dist-modal-close-btn')?.addEventListener('click', () => {
     document.getElementById('distribution-modal').style.display = 'none';
 });
+
+// Fund Content Modal Close
+document.getElementById('content-modal-close-btn')?.addEventListener('click', () => {
+    document.getElementById('fund-content-modal').style.display = 'none';
+});
+
+// Fund Content Modal (Bar Chart)
+window.showContentModal = async function(code, name) {
+    const modal = document.getElementById('fund-content-modal');
+    const title = document.getElementById('content-modal-title');
+    const subtitle = document.getElementById('content-modal-subtitle');
+    const loading = document.getElementById('content-modal-loading');
+    const chartContainer = document.getElementById('content-modal-chart-container');
+    const error = document.getElementById('content-modal-error');
+    const dateVal = document.getElementById('content-modal-date-val');
+    const ctx = document.getElementById('fund-content-bar-chart');
+
+    if (!modal) return;
+
+    title.textContent = `${code} - Fon İçeriği`;
+    subtitle.textContent = name;
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    chartContainer.style.display = 'none';
+    error.style.display = 'none';
+    dateVal.textContent = '';
+
+    if (window.contentBarChartInstance) {
+        window.contentBarChartInstance.destroy();
+    }
+
+    try {
+        const response = await fetch(`/api/fvt/distribution/${code}`);
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'İçerik verisi bulunamadı');
+        }
+
+        const apiResult = await response.json();
+
+        if (!apiResult || !apiResult.success || !apiResult.data || !Array.isArray(apiResult.data.items) || apiResult.data.items.length === 0) {
+            throw new Error('Bu fon için içerik verisi bulunamadı.');
+        }
+
+        const items = apiResult.data.items;
+
+        // Sort by agirlik (weight) descending and take top 10
+        const sorted = [...items].sort((a, b) => (parseFloat(b.agirlik) || 0) - (parseFloat(a.agirlik) || 0)).slice(0, 10);
+
+        const labels = sorted.map(item => item.hisseKodu || '');
+        const sirketAdi = sorted.map(item => item.sirketAdi || '');
+        const values = sorted.map(item => parseFloat(item.agirlik) || 0);
+        const colors = [
+            '#7551FF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+            '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE',
+            '#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6'
+        ];
+
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const textColor = isLight ? '#1B2559' : '#A3AED0';
+        const gridColor = isLight ? '#E9EDF7' : '#1B254B';
+        const bgColor = isLight ? '#FFFFFF' : '#111c44';
+
+        const barColors = labels.map((_, i) => colors[i % colors.length]);
+
+        window.contentBarChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Ağırlık (%)',
+                    data: values,
+                    backgroundColor: barColors.map(c => isLight ? c + 'CC' : c + 'DD'),
+                    borderColor: barColors,
+                    borderWidth: 1,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 28, 68, 0.9)',
+                        callbacks: {
+                            label: (context) => {
+                                const name = sirketAdi[context.dataIndex] || labels[context.dataIndex];
+                                const weight = context.parsed.x.toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+                                return `${name} | %${weight}`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'right',
+                        formatter: (value, context) => `${context.parsed.x.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}%`,
+                        font: { size: 11, weight: '500' },
+                        color: textColor
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: textColor,
+                            callback: (value) => `${value}%`
+                        },
+                        grid: { color: gridColor },
+                        beginAtZero: true
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            font: { size: 11 }
+                        },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Show açıklamaTarihi / timestamp if available
+        if (apiResult.timestamp || apiResult.data.timestamp) {
+            const rawDate = apiResult.timestamp || apiResult.data.timestamp;
+            dateVal.textContent = formatContentDate(rawDate);
+            document.getElementById('content-modal-date').style.display = 'block';
+        } else {
+            document.getElementById('content-modal-date').style.display = 'none';
+        }
+
+        loading.style.display = 'none';
+        chartContainer.style.display = 'block';
+
+    } catch (err) {
+        console.error('İçerik modalı hatası:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.querySelector('p').textContent = err.message;
+    }
+};
+
+// Helper: format date for content modal (YYYY-MM-DD → DD-MM-YYYY)
+function formatContentDate(dateStr) {
+    if (!dateStr) return '';
+    // ISO 8601: YYYY-MM-DDTHH:MM:SS...
+    const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoMatch) {
+        return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`;
+    }
+    // YYYY-MM-DD
+    const match1 = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match1) {
+        return `${match1[3]}-${match1[2]}-${match1[1]}`;
+    }
+    // YYYYMMDD
+    const match2 = dateStr.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (match2) {
+        return `${match2[3]}-${match2[2]}-${match2[1]}`;
+    }
+    return dateStr;
+}
+
