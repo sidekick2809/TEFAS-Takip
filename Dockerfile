@@ -1,16 +1,16 @@
 # Build stage
-FROM node:20-slim AS build
+FROM node:20-alpine AS build
 WORKDIR /app
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm run build
 
 # Final stage
-FROM node:20-slim
+FROM node:20-alpine
 WORKDIR /app
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm install --only=production
 COPY --from=build /app/dist ./dist

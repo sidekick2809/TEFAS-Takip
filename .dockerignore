@@ -5,3 +5,9 @@ dist
 .DS_Store
 Dockerfile
 README.md
+.kilo
+.kilocode
+.vscode
+.gitignore
+MOBILE_PROJECT_PLAN.md
+

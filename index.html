@@ -1663,15 +1663,24 @@
       <div class="settings-form" style="display: flex; flex-direction: column; gap: 1rem;">
         <div class="form-group">
           <label for="setting-today">Bugünün Tarihi (Bugün)</label>
-          <input type="date" id="setting-today" class="form-input">
+          <div class="custom-date-picker-wrapper">
+            <input type="text" id="setting-today" class="form-input custom-date-input" readonly placeholder="Tarih Seçin...">
+            <span class="calendar-icon">📅</span>
+          </div>
         </div>
         <div class="form-group">
           <label for="setting-target">Dünkü Tarih (1G / Fiyat1)</label>
-          <input type="date" id="setting-target" class="form-input">
+          <div class="custom-date-picker-wrapper">
+            <input type="text" id="setting-target" class="form-input custom-date-input" readonly placeholder="Tarih Seçin...">
+            <span class="calendar-icon">📅</span>
+          </div>
         </div>
         <div class="form-group">
           <label for="setting-seven">Geçen Haftaki Tarih (1H / Fiyat7)</label>
-          <input type="date" id="setting-seven" class="form-input">
+          <div class="custom-date-picker-wrapper">
+            <input type="text" id="setting-seven" class="form-input custom-date-input" readonly placeholder="Tarih Seçin...">
+            <span class="calendar-icon">📅</span>
+          </div>
         </div>
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
           <button id="settings-default-btn" class="secondary-btn" style="flex: 1;">Varsayılan</button>

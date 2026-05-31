@@ -1784,6 +1784,16 @@ window.addEventListener('DOMContentLoaded', () => {
             showStatus('Veri temizlenirken hata: ' + err.message, true);
         }
     });
+
+    // Load holidays and initialize custom date pickers
+    fetchPublicHolidays().then(() => {
+        const todayEl = document.getElementById('setting-today');
+        const targetEl = document.getElementById('setting-target');
+        const sevenEl = document.getElementById('setting-seven');
+        if (todayEl) pickerToday = new CustomDatePicker(todayEl);
+        if (targetEl) pickerTarget = new CustomDatePicker(targetEl);
+        if (sevenEl) pickerSeven = new CustomDatePicker(sevenEl);
+    });
 });
 
 // Global Tooltip
@@ -1855,6 +1865,180 @@ document.addEventListener('click', (e) => {
         themeOptions?.classList.remove('open');
     }
 });
+
+let publicHolidays = [];
+let pickerToday, pickerTarget, pickerSeven;
+
+async function fetchPublicHolidays() {
+    try {
+        const response = await fetch('/api/holidays');
+        if (response.ok) {
+            publicHolidays = await response.json();
+        }
+    } catch (e) {
+        console.error('Tatil günleri yüklenemedi:', e);
+    }
+}
+
+class CustomDatePicker {
+    constructor(inputElement) {
+        this.input = inputElement;
+        this.wrapper = inputElement.parentElement;
+        this.currentDate = new Date();
+        this.selectedDate = null;
+        
+        // Parse initial value if present
+        if (this.input.value) {
+            const parsed = new Date(this.input.value);
+            if (!isNaN(parsed)) {
+                this.selectedDate = parsed;
+                this.currentDate = new Date(parsed);
+            }
+        }
+        
+        this.init();
+    }
+    
+    init() {
+        // Create dropdown
+        this.dropdown = document.createElement('div');
+        this.dropdown.className = 'custom-calendar-dropdown';
+        this.wrapper.appendChild(this.dropdown);
+        
+        // Render empty structure
+        this.dropdown.innerHTML = `
+            <div class="calendar-header">
+                <button type="button" class="calendar-nav-btn prev-btn">←</button>
+                <div class="calendar-month-year"></div>
+                <button type="button" class="calendar-nav-btn next-btn">→</button>
+            </div>
+            <div class="calendar-weekdays">
+                <div>Pt</div><div>Sa</div><div>Ça</div><div>Pe</div><div>Cu</div><div>Ct</div><div>Pz</div>
+            </div>
+            <div class="calendar-days"></div>
+        `;
+        
+        this.monthYearEl = this.dropdown.querySelector('.calendar-month-year');
+        this.daysContainer = this.dropdown.querySelector('.calendar-days');
+        
+        // Event listeners
+        this.input.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other custom calendars first
+            document.querySelectorAll('.custom-calendar-dropdown').forEach(d => {
+                if (d !== this.dropdown) d.classList.remove('open');
+            });
+            this.open();
+        });
+        
+        this.dropdown.querySelector('.prev-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.changeMonth(-1);
+        });
+        
+        this.dropdown.querySelector('.next-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.changeMonth(1);
+        });
+        
+        // Close on click outside
+        document.addEventListener('click', (e) => {
+            if (!this.wrapper.contains(e.target)) {
+                this.close();
+            }
+        });
+    }
+    
+    open() {
+        if (this.input.value) {
+            const parsed = new Date(this.input.value);
+            if (!isNaN(parsed)) {
+                this.selectedDate = parsed;
+                this.currentDate = new Date(parsed);
+            }
+        } else {
+            this.selectedDate = null;
+            this.currentDate = new Date();
+        }
+        this.render();
+        this.dropdown.classList.add('open');
+    }
+    
+    close() {
+        this.dropdown.classList.remove('open');
+    }
+    
+    changeMonth(dir) {
+        this.currentDate.setMonth(this.currentDate.getMonth() + dir);
+        this.render();
+    }
+    
+    render() {
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        const monthNames = [
+            "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", 
+            "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+        ];
+        
+        this.monthYearEl.textContent = `${monthNames[month]} ${year}`;
+        this.daysContainer.innerHTML = '';
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        for (let i = 0; i < startDayIndex; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'calendar-day empty';
+            this.daysContainer.appendChild(emptyCell);
+        }
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'calendar-day';
+            dayCell.textContent = day;
+            
+            const mStr = String(month + 1).padStart(2, '0');
+            const dStr = String(day).padStart(2, '0');
+            const dateString = `${year}-${mStr}-${dStr}`;
+            
+            const cellDate = new Date(year, month, day);
+            const dayOfWeek = cellDate.getDay();
+            
+            const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+            if (isWeekend) {
+                dayCell.classList.add('weekend');
+            }
+            
+            if (typeof publicHolidays !== 'undefined' && Array.isArray(publicHolidays)) {
+                const holiday = publicHolidays.find(h => h.date === dateString);
+                if (holiday) {
+                    dayCell.classList.add('holiday', 'has-tooltip');
+                    dayCell.setAttribute('data-tooltip', `Resmi Tatil: ${holiday.holiday_name}`);
+                }
+            }
+            
+            if (this.selectedDate && 
+                this.selectedDate.getFullYear() === year && 
+                this.selectedDate.getMonth() === month && 
+                this.selectedDate.getDate() === day) {
+                dayCell.classList.add('selected');
+            }
+            
+            dayCell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectedDate = new Date(year, month, day);
+                this.input.value = dateString;
+                this.input.dispatchEvent(new Event('change', { bubbles: true }));
+                this.close();
+            });
+            
+            this.daysContainer.appendChild(dayCell);
+        }
+    }
+}
 
 
 // Settings Modal

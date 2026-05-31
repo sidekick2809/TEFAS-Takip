@@ -1507,7 +1507,7 @@ tr.stale-row td {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
   border: 1px solid var(--primary);
   pointer-events: none;
-  z-index: 9999;
+  z-index: 999999;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
@@ -2780,3 +2780,156 @@ th.sortable.sort-desc::after {
     background: var(--bg-card);
     color: var(--primary);
 }
+
+/* --- Custom Date Picker (Calendar) Styles --- */
+.custom-date-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.custom-date-picker-wrapper .custom-date-input {
+  width: 100%;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  background: var(--bg-color);
+}
+
+.custom-date-picker-wrapper .calendar-icon {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.custom-calendar-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 2000;
+  width: 280px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 16px;
+  display: none;
+  flex-direction: column;
+  animation: fadeInDown 0.2s ease-out;
+  backdrop-filter: blur(10px);
+}
+
+.custom-calendar-dropdown.open {
+  display: flex;
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.calendar-month-year {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-transform: capitalize;
+}
+
+.calendar-nav-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.calendar-nav-btn:hover {
+  background: rgba(112, 144, 176, 0.1);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 6px;
+}
+
+[data-theme="light"] .calendar-weekdays {
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: all 0.2s;
+  position: relative;
+}
+
+.calendar-day:hover {
+  background: rgba(112, 144, 176, 0.15);
+  color: var(--primary);
+}
+
+.calendar-day.empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+.calendar-day.selected {
+  background: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 10px rgba(117, 81, 255, 0.4);
+}
+
+/* Red circle for weekends and holidays */
+.calendar-day.weekend::after,
+.calendar-day.holiday::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+/* Light theme overrides for better visibility of circles */
+[data-theme="light"] .calendar-day.weekend::after,
+[data-theme="light"] .calendar-day.holiday::after {
+  border-color: #e53e3e;
+}
+

@@ -218,6 +218,17 @@ db.exec(`
     )
 `);
 
+// Create holidays table if not exists
+db.exec(`
+    CREATE TABLE IF NOT EXISTS holidays (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        date        TEXT UNIQUE,
+        day_name    TEXT,
+        holiday_name TEXT
+    )
+`);
+
+
 // Populate Kisaltmalar table
 const populateKisaltmalar = () => {
     const data = [
@@ -1573,6 +1584,94 @@ app.post('/api/kap-data/fetch', async (req, res) => {
         res.status(500).json({ error: 'KAP verisi çekilemedi: ' + err.message });
     }
 });
+
+// API: Holidays - Get all
+app.get('/api/holidays', (req, res) => {
+    try {
+        const rows = db.prepare('SELECT * FROM holidays ORDER BY date').all();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Tatil verileri okunamadı' });
+    }
+});
+
+// Function to sync holidays from Google Calendar
+async function syncHolidays() {
+    try {
+        console.log("Fetching holidays from Google Calendar...");
+        const response = await fetch('https://calendar.google.com/calendar/ical/tr.turkish%23holiday%40group.v.calendar.google.com/public/basic.ics');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const icsText = await response.text();
+        
+        const events = [];
+        const eventRegex = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/g;
+        let match;
+        
+        while ((match = eventRegex.exec(icsText)) !== null) {
+            const eventBlock = match[1];
+            const dtstartMatch = eventBlock.match(/DTSTART(?:;VALUE=DATE)?:(\d{8})/);
+            const summaryMatch = eventBlock.match(/SUMMARY:(.*)/);
+            const descMatch = eventBlock.match(/DESCRIPTION:(.*)/);
+            
+            if (dtstartMatch && summaryMatch) {
+                const rawDate = dtstartMatch[1];
+                const date = `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`;
+                let summary = summaryMatch[1].trim();
+                let desc = descMatch ? descMatch[1].trim() : '';
+                
+                summary = summary.replace(/\\,/g, ',').replace(/\\;/g, ';');
+                desc = desc.replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';');
+                
+                events.push({ date, summary, desc });
+            }
+        }
+        
+        // Filter events for official holidays (Resmi tatil)
+        const officialHolidays = events.filter(e => {
+            return e.desc.toLowerCase().includes('resmi tatil');
+        });
+
+        const cevirGun = (dateStr) => {
+            const dateObj = new Date(dateStr);
+            const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+            return days[dateObj.getDay()];
+        };
+
+        const translateHoliday = (title) => {
+            const sozluk = {
+                "Sacrifice Feast Holiday": "Kurban Bayramı Tatili",
+                "Kurban Bayrami Day 2": "Kurban Bayramı 2. Gün",
+                "Kurban Bayrami Day 3": "Kurban Bayramı 3. Gün",
+                "Kurban Bayrami Day 4": "Kurban Bayramı 4. Gün",
+                "New Year's Day": "Yılbaşı",
+                "Yılbaşı gecesi": "Yılbaşı Gecesi",
+                "Atatürk’ü Anma, Gençlik ve Spor Bayramı": "Atatürk'ü Anma, Gençlik ve Spor Bayramı"
+            };
+            return sozluk[title] || title;
+        };
+
+        // Write to DB
+        const insert = db.prepare('INSERT OR REPLACE INTO holidays (date, day_name, holiday_name) VALUES (?, ?, ?)');
+        const deleteOld = db.prepare('DELETE FROM holidays');
+        
+        db.transaction(() => {
+            deleteOld.run();
+            for (const h of officialHolidays) {
+                const trTitle = translateHoliday(h.summary);
+                const dayName = cevirGun(h.date);
+                insert.run(h.date, dayName, trTitle);
+            }
+        })();
+        
+        console.log(`Successfully synced ${officialHolidays.length} official holidays.`);
+    } catch (err) {
+        console.error('Error syncing holidays:', err.message);
+    }
+}
+
+// Sync holidays on server startup
+syncHolidays();
+
 
 // Proxy TEFAS requests
 app.use('/api', createProxyMiddleware({
