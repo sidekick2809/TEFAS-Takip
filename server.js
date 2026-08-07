@@ -1682,6 +1682,90 @@ app.use('/api', createProxyMiddleware({
     }
 }));
 
+// API: X (Twitter) Search for fund codes
+app.post('/api/x-search', async (req, res) => {
+    try {
+        const { token, codes } = req.body;
+        if (!token) {
+            return res.status(400).json({ error: 'X API token gereklidir' });
+        }
+        if (!codes || !Array.isArray(codes) || codes.length === 0) {
+            return res.status(400).json({ error: 'Fon kodları gereklidir' });
+        }
+
+        const results = [];
+        const queryBase = 'lang:tr -is:retweet';
+
+        for (const code of codes) {
+            try {
+                const query = `${code} ${queryBase}`;
+                const response = await fetch('https://api.twitter.com/2/tweets/search/recent', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        max_results: 10,
+                        tweet_fields: ['created_at', 'public_metrics', 'author_id', 'text'],
+                        expansions: ['author_id'],
+                        user_fields: ['username', 'name']
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    console.error(`X API error for ${code}: ${response.status} - ${errText}`);
+                    results.push({
+                        code: code,
+                        error: `API hatası: ${response.status}`,
+                        tweets: []
+                    });
+                    continue;
+                }
+
+                const data = await response.json();
+                const tweets = data.data || [];
+                const users = data.includes?.users || [];
+                const userMap = new Map(users.map(u => [u.id, u]));
+
+                const processedTweets = tweets.map(tweet => {
+                    const user = userMap.get(tweet.author_id);
+                    return {
+                        text: tweet.text,
+                        created_at: tweet.created_at,
+                        likes: tweet.public_metrics?.like_count || 0,
+                        retweets: tweet.public_metrics?.retweet_count || 0,
+                        replies: tweet.public_metrics?.reply_count || 0,
+                        author_name: user?.name || 'Bilinmeyen',
+                        author_username: user?.username || '',
+                        url: `https://x.com/i/status/${tweet.id}`
+                    };
+                }).sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
+
+                results.push({
+                    code: code,
+                    error: null,
+                    tweets: processedTweets
+                });
+            } catch (err) {
+                console.error(`Fetch error for ${code}:`, err);
+                results.push({
+                    code: code,
+                    error: `İstek hatası: ${err.message}`,
+                    tweets: []
+                });
+            }
+        }
+
+        res.json({ success: true, data: results });
+    } catch (err) {
+        console.error('X search error:', err);
+        res.status(500).json({ error: 'X araması başarısız: ' + err.message });
+    }
+});
+
 // Serve static files from build
 app.use(express.static(path.join(__dirname, 'dist')));
 

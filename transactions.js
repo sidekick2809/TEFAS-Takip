@@ -56,6 +56,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
             else if (target === 'tab-bes-portfolio') mainTitleEl.textContent = 'BES İşlemleri';
             else if (target === 'tab-flow') mainTitleEl.textContent = 'Para Akışı Analizi';
             else if (target === 'tab-kap') mainTitleEl.textContent = 'KAP Bildirimleri';
+            else if (target === 'tab-x-ai') mainTitleEl.textContent = 'X Analiz';
             else if (target === 'tab-fvt') mainTitleEl.textContent = 'FVT Data';
         }
 
@@ -106,6 +107,7 @@ document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
             else if (target === 'tab-bes-portfolio') mainTitleEl.textContent = 'BES İşlemleri';
             else if (target === 'tab-flow') mainTitleEl.textContent = 'Para Akışı Analizi';
             else if (target === 'tab-kap') mainTitleEl.textContent = 'KAP Bildirimleri';
+            else if (target === 'tab-x-ai') mainTitleEl.textContent = 'X Analiz';
             else if (target === 'tab-fvt') mainTitleEl.textContent = 'FVT Data';
         }
 

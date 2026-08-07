@@ -517,6 +517,14 @@ body {
   background: rgba(1, 181, 116, 0.2);
 }
 
+.icon-wrapper.x-ai {
+  color: #1da1f2;
+}
+
+.sidebar-btn.active .icon-wrapper.x-ai {
+  background: rgba(29, 161, 242, 0.2);
+}
+
 .sidebar-separator {
   height: 1px;
   background: linear-gradient(90deg, transparent, #e5e6e6, transparent);
@@ -2721,6 +2729,93 @@ th.sortable.sort-desc::after {
     grid-template-columns: 1fr 1fr !important;
   }
 }
+
+/* X AI Analysis Styles */
+.x-fund-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.x-fund-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.x-tweets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.x-tweet {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.x-tweet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.x-tweet-author {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.85rem;
+}
+
+.x-tweet-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.x-tweet-text {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.x-tweet-metrics {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+#x-api-token {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  width: 220px;
+  transition: border-color 0.2s;
+}
+
+#x-api-token:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  #x-api-token {
+    width: 100%;
+  }
+}
+
 /* Distribution Table Styles */
 .distribution-table {
     width: 100%;
