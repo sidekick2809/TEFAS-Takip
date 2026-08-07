@@ -1695,9 +1695,21 @@ app.post('/api/x-search', async (req, res) => {
 
         const results = [];
         const queryBase = 'lang:tr -is:retweet';
+        const total = codes.length;
 
-        for (const code of codes) {
+        xSearchProgress.step = `${codes.length} fon için arama başlatılıyor...`;
+        xSearchProgress.percent = 0;
+        xSearchProgress.currentCode = null;
+        xSearchProgress.done = false;
+        xSearchProgress.error = false;
+
+        for (let i = 0; i < codes.length; i++) {
+            const code = codes[i];
             try {
+                xSearchProgress.currentCode = code;
+                xSearchProgress.step = `"${code}" için X'te arama yapılıyor...`;
+                xSearchProgress.percent = Math.round(((i) / total) * 100);
+
                 const query = `${code} ${queryBase}`;
                 const response = await fetch('https://api.twitter.com/2/tweets/search/recent', {
                     method: 'POST',
@@ -1713,6 +1725,8 @@ app.post('/api/x-search', async (req, res) => {
                         user_fields: ['username', 'name']
                     })
                 });
+
+                xSearchProgress.step = `"${code}" sonuçları işleniyor...`;
 
                 if (!response.ok) {
                     const errText = await response.text();
@@ -1759,11 +1773,24 @@ app.post('/api/x-search', async (req, res) => {
             }
         }
 
+        xSearchProgress.step = 'Sonuçlar hazırlanıyor...';
+        xSearchProgress.percent = 100;
+        xSearchProgress.done = true;
+
         res.json({ success: true, data: results });
     } catch (err) {
         console.error('X search error:', err);
+        xSearchProgress.step = `Hata: ${err.message}`;
+        xSearchProgress.error = true;
         res.status(500).json({ error: 'X araması başarısız: ' + err.message });
     }
+});
+
+// API: X Search Progress
+const xSearchProgress = { step: '', percent: 0, currentCode: null, done: false, error: false };
+
+app.get('/api/x-search-status', (req, res) => {
+    res.json(xSearchProgress);
 });
 
 // Serve static files from build

@@ -7,6 +7,7 @@ const xEmpty = document.getElementById('x-empty');
 
 let favoriteCodes = [];
 let isSearching = false;
+let progressTimer = null;
 
 function initXai() {
     const savedToken = localStorage.getItem('xApiToken');
@@ -32,6 +33,69 @@ async function loadFavorites() {
     }
 }
 
+function appendLog(message) {
+    let logContainer = document.getElementById('x-log-container');
+    if (!logContainer) {
+        logContainer = document.createElement('div');
+        logContainer.id = 'x-log-container';
+        logContainer.style.cssText = 'background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; margin-top: 1rem; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; color: var(--text-muted);';
+        const logTitle = document.createElement('div');
+        logTitle.style.cssText = 'font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; font-size: 0.85rem;';
+        logTitle.textContent = 'İlerleme:';
+        logContainer.appendChild(logTitle);
+        xLoading.appendChild(logContainer);
+    }
+
+    const entry = document.createElement('div');
+    entry.style.cssText = 'padding: 0.15rem 0;';
+    entry.textContent = `> ${message}`;
+    logContainer.appendChild(entry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function clearLog() {
+    const logContainer = document.getElementById('x-log-container');
+    if (logContainer) {
+        logContainer.innerHTML = '';
+        const logTitle = document.createElement('div');
+        logTitle.style.cssText = 'font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; font-size: 0.85rem;';
+        logTitle.textContent = 'İlerleme:';
+        logContainer.appendChild(logTitle);
+    }
+}
+
+async function startProgressPolling() {
+    clearLog();
+    appendLog('Favoriler yükleniyor...');
+    appendLog(`${favoriteCodes.length} fon bulundu.`);
+
+    if (progressTimer) clearInterval(progressTimer);
+
+    progressTimer = setInterval(async () => {
+        try {
+            const response = await fetch('/api/x-search-status');
+            if (response.ok) {
+                const status = await response.json();
+                if (status.step && status.step !== 'Sonuçlar hazırlanıyor...') {
+                    appendLog(status.step);
+                }
+                if (status.error) {
+                    appendLog(`Hata: ${status.step}`);
+                }
+            }
+        } catch (err) {
+            // ignore polling errors
+        }
+    }, 800);
+}
+
+function stopProgressPolling() {
+    if (progressTimer) {
+        clearInterval(progressTimer);
+        progressTimer = null;
+    }
+}
+
 async function handleXSearch() {
     if (isSearching) return;
 
@@ -54,6 +118,11 @@ async function handleXSearch() {
     xResults.style.display = 'none';
     xLoading.style.display = 'block';
 
+    clearLog();
+    appendLog('Arama başlatılıyor...');
+
+    await startProgressPolling();
+
     try {
         const response = await fetch('/api/x-search', {
             method: 'POST',
@@ -67,15 +136,20 @@ async function handleXSearch() {
             throw new Error(result.error || 'Arama başarısız oldu');
         }
 
+        appendLog('Tüm aramalar tamamlandı. Sonuçlar hazırlanıyor...');
+        stopProgressPolling();
         renderXResults(result.data);
     } catch (err) {
         console.error('X search error:', err);
+        stopProgressPolling();
+        appendLog(`Hata: ${err.message}`);
         xResults.innerHTML = `<div class="empty-state">Hata: ${escapeHtml(err.message)}</div>`;
         xResults.style.display = 'block';
     } finally {
         isSearching = false;
         xSearchBtn.disabled = false;
         xLoading.style.display = 'none';
+        stopProgressPolling();
     }
 }
 
