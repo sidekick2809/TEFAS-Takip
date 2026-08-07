@@ -1561,6 +1561,56 @@
             </tbody>
           </table>
         </div>
+
+        <div class="table-container fade-in" style="margin-top: 1.5rem;">
+          <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+            <h4 style="margin: 0; color: var(--text-main);">En Çok Para Girişi Olan Fonlar (Top 10)</h4>
+            <div class="transaction-toggle" style="display: inline-flex; gap: 0.25rem; background: var(--bg-color); border-radius: 8px; padding: 2px;">
+              <input type="radio" id="flow-period-daily" name="flow-period" value="daily" checked>
+              <label for="flow-period-daily" class="toggle-btn buy" style="font-size: 0.75rem; padding: 0.35rem 0.8rem;">Günlük</label>
+              <input type="radio" id="flow-period-weekly" name="flow-period" value="weekly">
+              <label for="flow-period-weekly" class="toggle-btn sell" style="font-size: 0.75rem; padding: 0.35rem 0.8rem;">Haftalık</label>
+            </div>
+          </div>
+          <div id="flow-inflow-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <h5 style="margin: 0 0 0.5rem 0; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Yatırım Fonları (YAT)</h5>
+              <table id="flow-inflow-yat-table">
+                <thead>
+                  <tr>
+                    <th>FON KODU</th>
+                    <th>FON ADI</th>
+                    <th>PARA GİRİŞİ (₺)</th>
+                    <th>PARA GİRİŞİ %</th>
+                  </tr>
+                </thead>
+                <tbody id="flow-inflow-yat-body">
+                  <tr>
+                    <td colspan="4" class="empty-state">Verileri ana sayfadan güncelleyin.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h5 style="margin: 0 0 0.5rem 0; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Emeklilik Fonları (BES)</h5>
+              <table id="flow-inflow-bes-table">
+                <thead>
+                  <tr>
+                    <th>FON KODU</th>
+                    <th>FON ADI</th>
+                    <th>PARA GİRİŞİ (₺)</th>
+                    <th>PARA GİRİŞİ %</th>
+                  </tr>
+                </thead>
+                <tbody id="flow-inflow-bes-body">
+                  <tr>
+                    <td colspan="4" class="empty-state">Verileri ana sayfadan güncelleyin.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
       <!-- TAB: KAP BİLDİRİMLERİ -->
       <div id="tab-kap" class="tab-panel">

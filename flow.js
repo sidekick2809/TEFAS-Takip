@@ -194,7 +194,147 @@ function handleFlowSort(event) {
 // Export for transactions.js tab switching
 window.renderFlow = function () {
     fetchFlowData();
+    fetchInflowData();
 };
+
+// ==================== PARA GİRİŞİ TABLOSU ====================
+const flowInflowYatBody = document.getElementById('flow-inflow-yat-body');
+const flowInflowBesBody = document.getElementById('flow-inflow-bes-body');
+let inflowPeriod = 'daily';
+let inflowCacheYat = null;
+let inflowCacheBes = null;
+
+function processFund(fund) {
+    const code = fund[0];
+    const name = fund[1];
+    const isActive = fund[14];
+    const portfoyBuyukluk = fund[20] || 0;
+    const portfoyBuyukluk1 = fund[22] || 0;
+    const portfoyBuyukluk7 = fund[24] || 0;
+
+    if (!code || !name) return null;
+    if (isActive !== 'EVET') return null;
+    if (name.toUpperCase().includes('PARA PİYASASI') || name.toUpperCase().includes('PARA PIYASASI')) return null;
+
+    const dailyPrev = portfoyBuyukluk1;
+    const weeklyPrev = portfoyBuyukluk7;
+
+    if (dailyPrev <= 0 && weeklyPrev <= 0) return null;
+
+    return {
+        code: code,
+        name: name,
+        dailyGiris: portfoyBuyukluk - dailyPrev,
+        dailyYuzde: dailyPrev > 0 ? ((portfoyBuyukluk - dailyPrev) / dailyPrev) * 100 : 0,
+        weeklyGiris: portfoyBuyukluk - weeklyPrev,
+        weeklyYuzde: weeklyPrev > 0 ? ((portfoyBuyukluk - weeklyPrev) / weeklyPrev) * 100 : 0
+    };
+}
+
+async function fetchInflowData() {
+    try {
+        let yatData = window.fullData || [];
+        let besData = window.besData || [];
+
+        if (yatData.length === 0) {
+            const res = await fetch('/api/tefas-data?type=YAT');
+            const result = await res.json();
+            yatData = result.data || [];
+        }
+        if (besData.length === 0) {
+            const res = await fetch('/api/tefas-data?type=EMK');
+            const result = await res.json();
+            besData = result.data || [];
+        }
+
+        const yatResults = [];
+        const besResults = [];
+
+        yatData.forEach(fund => {
+            const item = processFund(fund);
+            if (item) yatResults.push(item);
+        });
+
+        besData.forEach(fund => {
+            const item = processFund(fund);
+            if (item) besResults.push(item);
+        });
+
+        inflowCacheYat = yatResults;
+        inflowCacheBes = besResults;
+        renderInflowTable('yat');
+        renderInflowTable('bes');
+    } catch (e) {
+        console.error('Unexpected error in fetchInflowData:', e);
+        flowInflowYatBody.innerHTML = '<tr><td colspan="4" class="empty-state">Veri işlenirken hata oluştu.</td></tr>';
+        flowInflowBesBody.innerHTML = '<tr><td colspan="4" class="empty-state">Veri işlenirken hata oluştu.</td></tr>';
+    }
+}
+
+function renderInflowTable(type) {
+    const cache = type === 'yat' ? inflowCacheYat : inflowCacheBes;
+    const body = type === 'yat' ? flowInflowYatBody : flowInflowBesBody;
+
+    if (!cache || cache.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="empty-state">Veri bulunamadı. Ana sayfadan verileri güncelleyin.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = '';
+
+    let displayData = cache.map(item => {
+        if (inflowPeriod === 'daily') {
+            return {
+                code: item.code,
+                name: item.name,
+                giris: item.dailyGiris,
+                yuzde: item.dailyYuzde
+            };
+        } else {
+            return {
+                code: item.code,
+                name: item.name,
+                giris: item.weeklyGiris,
+                yuzde: item.weeklyYuzde
+            };
+        }
+    });
+
+    displayData.sort((a, b) => b.giris - a.giris);
+    displayData = displayData.slice(0, 10);
+
+    displayData.forEach(item => {
+        const formatPercent = (val) => {
+            if (val === null || val === undefined || isNaN(val)) return '<span class="val-zero">-</span>';
+            const cssClass = val > 0.005 ? 'val-up' : val < -0.005 ? 'val-down' : 'val-zero';
+            return `<span class="${cssClass}">${val > 0 ? '+' : ''}${val.toFixed(2)}%</span>`;
+        };
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <a href="https://www.tefas.gov.tr/tr/fon-detayli-analiz/${item.code}" target="_blank" class="fund-link">
+                    <strong>${item.code}</strong>
+                </a>
+            </td>
+            <td>${item.name}</td>
+            <td class="${item.giris > 0 ? 'val-up' : item.giris < 0 ? 'val-down' : 'val-zero'}">
+                ${item.giris > 0 ? '+' : ''}${item.giris.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </td>
+            <td>${formatPercent(item.yuzde)}</td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+function handleInflowPeriodChange(event) {
+    const radio = event.target;
+    if (radio && radio.name === 'flow-period') {
+        inflowPeriod = radio.value;
+        renderInflowTable('yat');
+        renderInflowTable('bes');
+    }
+}
 
 // ==================== KAP BİLDİRİMLERİ ====================
 const fetchKapBtn = document.getElementById('fetch-kap-btn');
@@ -375,4 +515,9 @@ window.addEventListener('DOMContentLoaded', () => {
             flowThead.addEventListener('click', handleFlowSort);
         }
     }
+
+    // Add period toggle listener for inflow tables
+    document.querySelectorAll('input[name="flow-period"]').forEach(radio => {
+        radio.addEventListener('change', handleInflowPeriodChange);
+    });
 });

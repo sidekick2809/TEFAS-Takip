@@ -956,9 +956,27 @@ td {
 #flow-table td,
 #flow-table th,
 #kap-table td,
-#kap-table th {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85rem;
+#kap-table th,
+#flow-inflow-table td,
+#flow-inflow-table th,
+#flow-inflow-yat-table td,
+#flow-inflow-yat-table th,
+#flow-inflow-bes-table td,
+#flow-inflow-bes-table th {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+/* Fund name column truncation for inflow tables */
+#flow-inflow-yat-table td:nth-child(2),
+#flow-inflow-yat-table th:nth-child(2),
+#flow-inflow-bes-table td:nth-child(2),
+#flow-inflow-bes-table th:nth-child(2) {
+  max-width: 20%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* UNVAN column single line */
@@ -2047,6 +2065,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-color: #ef4444;
 }
 
+/* Flow Period Toggle */
+#flow-period-daily:checked+.toggle-btn.buy {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border-color: #10b981;
+}
+
+#flow-period-weekly:checked+.toggle-btn.sell {
+  background: rgba(31, 184, 208, 0.2);
+  color: #1fb8d0;
+  border-color: #1fb8d0;
+}
+
 .type-badge {
   padding: 2px 6px;
   border-radius: 4px;
@@ -2663,6 +2694,11 @@ th.sortable.sort-desc::after {
     padding: 1rem !important;
     margin: 0.5rem !important;
   }
+
+  /* Stack inflow tables on mobile */
+  #flow-inflow-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* Extra small devices */
@@ -2696,6 +2732,10 @@ th.sortable.sort-desc::after {
     padding: 12px;
     border-bottom: 1px solid var(--border-color);
     font-size: 0.9rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    max-width: 300px;
 }
 
 .distribution-table th {
