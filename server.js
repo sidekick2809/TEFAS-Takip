@@ -1682,22 +1682,36 @@ app.use('/api', createProxyMiddleware({
     }
 }));
 
-// API: X (Twitter) Search for fund codes
+// API: X (Twitter) Search for fund codes using xAI Grok
+function extractXaiText(data) {
+    if (!data || !Array.isArray(data.output)) return '';
+    const parts = [];
+    for (const item of data.output) {
+        if (item.type === 'message' && Array.isArray(item.content)) {
+            for (const c of item.content) {
+                if (c.type === 'text' && c.text) parts.push(c.text);
+            }
+        } else if (item.type === 'text' && item.text) {
+            parts.push(item.text);
+        }
+    }
+    return parts.join('\n').trim();
+}
+
 app.post('/api/x-search', async (req, res) => {
     try {
         const { token, codes } = req.body;
         if (!token) {
-            return res.status(400).json({ error: 'X API token gereklidir' });
+            return res.status(400).json({ error: 'xAI API token gereklidir' });
         }
         if (!codes || !Array.isArray(codes) || codes.length === 0) {
             return res.status(400).json({ error: 'Fon kodları gereklidir' });
         }
 
         const results = [];
-        const queryBase = 'lang:tr -is:retweet';
         const total = codes.length;
 
-        xSearchProgress.step = `${codes.length} fon için arama başlatılıyor...`;
+        xSearchProgress.step = `${codes.length} fon için Grok araması başlatılıyor...`;
         xSearchProgress.percent = 0;
         xSearchProgress.currentCode = null;
         xSearchProgress.done = false;
@@ -1707,22 +1721,18 @@ app.post('/api/x-search', async (req, res) => {
             const code = codes[i];
             try {
                 xSearchProgress.currentCode = code;
-                xSearchProgress.step = `"${code}" için X'te arama yapılıyor...`;
+                xSearchProgress.step = `"${code}" için Grok ile X araması yapılıyor...`;
                 xSearchProgress.percent = Math.round(((i) / total) * 100);
 
-                const query = `${code} ${queryBase}`;
-                const response = await fetch('https://api.twitter.com/2/tweets/search/recent', {
+                const response = await fetch('https://api.x.ai/v1/responses', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        query: query,
-                        max_results: 10,
-                        tweet_fields: ['created_at', 'public_metrics', 'author_id', 'text'],
-                        expansions: ['author_id'],
-                        user_fields: ['username', 'name']
+                        model: 'grok-4.5',
+                        input: `Search Twitter/X for recent discussions, news, and opinions about the Turkish investment fund with code "${code}". List the most relevant recent tweets and summarize the sentiment in Turkish. Be concise but informative.`
                     })
                 });
 
@@ -1730,45 +1740,29 @@ app.post('/api/x-search', async (req, res) => {
 
                 if (!response.ok) {
                     const errText = await response.text();
-                    console.error(`X API error for ${code}: ${response.status} - ${errText}`);
+                    console.error(`xAI API error for ${code}: ${response.status} - ${errText}`);
                     results.push({
                         code: code,
-                        error: `API hatası: ${response.status}`,
-                        tweets: []
+                        error: `xAI API hatası: ${response.status}`,
+                        text: ''
                     });
                     continue;
                 }
 
                 const data = await response.json();
-                const tweets = data.data || [];
-                const users = data.includes?.users || [];
-                const userMap = new Map(users.map(u => [u.id, u]));
-
-                const processedTweets = tweets.map(tweet => {
-                    const user = userMap.get(tweet.author_id);
-                    return {
-                        text: tweet.text,
-                        created_at: tweet.created_at,
-                        likes: tweet.public_metrics?.like_count || 0,
-                        retweets: tweet.public_metrics?.retweet_count || 0,
-                        replies: tweet.public_metrics?.reply_count || 0,
-                        author_name: user?.name || 'Bilinmeyen',
-                        author_username: user?.username || '',
-                        url: `https://x.com/i/status/${tweet.id}`
-                    };
-                }).sort((a, b) => (b.likes + b.retweets) - (a.likes + a.retweets));
+                const text = extractXaiText(data);
 
                 results.push({
                     code: code,
                     error: null,
-                    tweets: processedTweets
+                    text: text || 'Bu fon için sonuç bulunamadı.'
                 });
             } catch (err) {
                 console.error(`Fetch error for ${code}:`, err);
                 results.push({
                     code: code,
                     error: `İstek hatası: ${err.message}`,
-                    tweets: []
+                    text: ''
                 });
             }
         }
@@ -1779,15 +1773,54 @@ app.post('/api/x-search', async (req, res) => {
 
         res.json({ success: true, data: results });
     } catch (err) {
-        console.error('X search error:', err);
+        console.error('xAI search error:', err);
         xSearchProgress.step = `Hata: ${err.message}`;
         xSearchProgress.error = true;
-        res.status(500).json({ error: 'X araması başarısız: ' + err.message });
+        res.status(500).json({ error: 'xAI araması başarısız: ' + err.message });
+    }
+});
+
+// API: X Search single fund using xAI Grok
+app.post('/api/x-search-fund', async (req, res) => {
+    try {
+        const { token, code } = req.body;
+        if (!token) {
+            return res.status(400).json({ error: 'xAI API token gereklidir' });
+        }
+        if (!code) {
+            return res.status(400).json({ error: 'Fon kodu gereklidir' });
+        }
+
+        const response = await fetch('https://api.x.ai/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'grok-4.5',
+                input: `Search Twitter/X for recent discussions, news, and opinions about the Turkish investment fund with code "${code}". List the most relevant recent tweets and summarize the sentiment in Turkish. Be concise but informative.`
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`xAI API error for ${code}: ${response.status} - ${errText}`);
+            return res.status(response.status).json({ error: `xAI API hatası: ${response.status}` });
+        }
+
+        const data = await response.json();
+        const text = extractXaiText(data);
+
+        res.json({ success: true, code, text: text || 'Bu fon için sonuç bulunamadı.' });
+    } catch (err) {
+        console.error(`xAI search fund error:`, err);
+        res.status(500).json({ error: 'xAI araması başarısız: ' + err.message });
     }
 });
 
 // API: X Search Progress
-const xSearchProgress = { step: '', percent: 0, currentCode: null, done: false, error: false };
+const xSearchProgress = { step: 'Hazır', percent: 0, currentCode: null, done: false, error: false };
 
 app.get('/api/x-search-status', (req, res) => {
     res.json(xSearchProgress);

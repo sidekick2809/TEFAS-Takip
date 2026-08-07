@@ -1,4 +1,4 @@
-// xai.js handles the X (Twitter) AI Analysis tab
+// xai.js handles the X (Twitter) AI Analysis tab using xAI Grok API
 const xApiTokenInput = document.getElementById('x-api-token');
 const xSearchBtn = document.getElementById('x-search-btn');
 const xLoading = document.getElementById('x-loading');
@@ -64,36 +64,51 @@ function clearLog() {
     }
 }
 
-async function startProgressPolling() {
-    clearLog();
-    appendLog('Favoriler yükleniyor...');
-    appendLog(`${favoriteCodes.length} fon bulundu.`);
+function appendFundCard(code, text, error) {
+    const card = document.createElement('div');
+    card.className = 'x-fund-card';
+    card.style.animation = 'fadeIn 0.5s ease';
 
-    if (progressTimer) clearInterval(progressTimer);
+    if (error) {
+        card.innerHTML = `
+          <div class="x-fund-header">
+            <div>
+              <h4 style="margin: 0; color: var(--danger);">${escapeHtml(code)}</h4>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Hata oluştu</span>
+            </div>
+          </div>
+          <div class="x-tweets-list">
+            <div class="empty-state" style="padding: 1rem; color: var(--danger);">${escapeHtml(error)}</div>
+          </div>
+        `;
+    } else {
+        const paragraphs = text.split('\n').filter(p => p.trim()).map(p => 
+            `<p style="margin: 0 0 0.5rem 0; color: var(--text-main); font-size: 0.85rem; line-height: 1.5;">${escapeHtml(p)}</p>`
+        ).join('');
 
-    progressTimer = setInterval(async () => {
-        try {
-            const response = await fetch('/api/x-search-status');
-            if (response.ok) {
-                const status = await response.json();
-                if (status.step && status.step !== 'Sonuçlar hazırlanıyor...') {
-                    appendLog(status.step);
-                }
-                if (status.error) {
-                    appendLog(`Hata: ${status.step}`);
-                }
-            }
-        } catch (err) {
-            // ignore polling errors
-        }
-    }, 800);
+        card.innerHTML = `
+          <div class="x-fund-header">
+            <div>
+              <h4 style="margin: 0; color: var(--text-main);">${escapeHtml(code)}</h4>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Grok özeti hazır</span>
+            </div>
+          </div>
+          <div class="x-tweets-list">
+            <div style="padding: 0.5rem 0; color: var(--text-main); font-size: 0.85rem; line-height: 1.6;">
+              ${paragraphs}
+            </div>
+          </div>
+        `;
+    }
+
+    xResults.appendChild(card);
 }
 
-function stopProgressPolling() {
-    if (progressTimer) {
-        clearInterval(progressTimer);
-        progressTimer = null;
-    }
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 async function handleXSearch() {
@@ -101,7 +116,7 @@ async function handleXSearch() {
 
     const token = saveToken();
     if (!token) {
-        alert('Lütfen X API Bearer Token giriniz.');
+        alert('Lütfen xAI API Bearer Token giriniz.');
         xApiTokenInput.focus();
         return;
     }
@@ -115,102 +130,43 @@ async function handleXSearch() {
     isSearching = true;
     xSearchBtn.disabled = true;
     xEmpty.style.display = 'none';
-    xResults.style.display = 'none';
+    xResults.style.display = 'block';
+    xResults.innerHTML = '';
     xLoading.style.display = 'block';
 
     clearLog();
-    appendLog('Arama başlatılıyor...');
+    appendLog(`${favoriteCodes.length} fon için Grok araması başlatılıyor...`);
 
-    await startProgressPolling();
+    for (let i = 0; i < favoriteCodes.length; i++) {
+        const code = favoriteCodes[i];
+        appendLog(`"${code}" için arama yapılıyor (${i + 1}/${favoriteCodes.length})...`);
 
-    try {
-        const response = await fetch('/api/x-search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, codes: favoriteCodes })
-        });
+        try {
+            const response = await fetch('/api/x-search-fund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, code })
+            });
 
-        const result = await response.json();
+            const result = await response.json();
 
-        if (!response.ok) {
-            throw new Error(result.error || 'Arama başarısız oldu');
+            if (response.ok && result.success) {
+                appendLog(`"${code}" sonuçları alındı.`);
+                appendFundCard(code, result.text, null);
+            } else {
+                appendLog(`"${code}" hata: ${result.error || 'Bilinmeyen hata'}`);
+                appendFundCard(code, null, result.error || 'Bilinmeyen hata');
+            }
+        } catch (err) {
+            appendLog(`"${code}" istem hatası: ${err.message}`);
+            appendFundCard(code, null, err.message);
         }
-
-        appendLog('Tüm aramalar tamamlandı. Sonuçlar hazırlanıyor...');
-        stopProgressPolling();
-        renderXResults(result.data);
-    } catch (err) {
-        console.error('X search error:', err);
-        stopProgressPolling();
-        appendLog(`Hata: ${err.message}`);
-        xResults.innerHTML = `<div class="empty-state">Hata: ${escapeHtml(err.message)}</div>`;
-        xResults.style.display = 'block';
-    } finally {
-        isSearching = false;
-        xSearchBtn.disabled = false;
-        xLoading.style.display = 'none';
-        stopProgressPolling();
-    }
-}
-
-function renderXResults(data) {
-    if (!data || data.length === 0) {
-        xResults.innerHTML = '<div class="empty-state">Sonuç bulunamadı.</div>';
-        xResults.style.display = 'block';
-        return;
     }
 
-    xResults.innerHTML = '';
-
-    data.forEach(fund => {
-        const card = document.createElement('div');
-        card.className = 'x-fund-card';
-
-        const tweetsHtml = fund.tweets && fund.tweets.length > 0
-            ? fund.tweets.slice(0, 5).map(tweet => `
-                <div class="x-tweet">
-                  <div class="x-tweet-header">
-                    <span class="x-tweet-author">${escapeHtml(tweet.author_name)}</span>
-                    <span class="x-tweet-date">${formatDate(tweet.created_at)}</span>
-                  </div>
-                  <p class="x-tweet-text">${escapeHtml(tweet.text)}</p>
-                  <div class="x-tweet-metrics">
-                    <span>❤️ ${tweet.likes}</span>
-                    <span>🔄 ${tweet.retweets}</span>
-                    <span>💬 ${tweet.replies}</span>
-                    <a href="${escapeHtml(tweet.url)}" target="_blank" class="fund-link" style="font-size: 0.75rem;">X'te Gör →</a>
-                  </div>
-                </div>
-              `).join('')
-            : `<div class="empty-state" style="padding: 1rem;">${fund.error ? escapeHtml(fund.error) : 'Bu fon için tweet bulunamadı.'}</div>`;
-
-        card.innerHTML = `
-          <div class="x-fund-header">
-            <div>
-              <h4 style="margin: 0; color: var(--text-main);">${escapeHtml(fund.code)}</h4>
-              <span style="font-size: 0.8rem; color: var(--text-muted);">${fund.tweets ? fund.tweets.length : 0} tweet bulundu</span>
-            </div>
-          </div>
-          <div class="x-tweets-list">${tweetsHtml}</div>
-        `;
-
-        xResults.appendChild(card);
-    });
-
-    xResults.style.display = 'block';
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    appendLog('Tüm aramalar tamamlandı.');
+    isSearching = false;
+    xSearchBtn.disabled = false;
+    xLoading.style.display = 'none';
 }
 
 // Initialize on DOM ready

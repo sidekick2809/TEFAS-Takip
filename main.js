@@ -2385,21 +2385,19 @@ window.showDistributionModal = async function(code, name) {
             '#8E44AD', '#2980B9', '#27AE60', '#F39C12', '#D35400'
         ];
 
-        data.distribution.forEach(item => {
-            const isBilFiyat = item.key === 'bilFiyat';
+        const sortedDistribution = [...data.distribution]
+            .filter(item => item.key !== 'bilFiyat')
+            .sort((a, b) => {
+                const valA = parseFloat(a.value) || 0;
+                const valB = parseFloat(b.value) || 0;
+                return valB - valA;
+            });
+
+        sortedDistribution.forEach(item => {
             const tr = document.createElement('tr');
-            
-            let displayValue = '';
-            if (isBilFiyat) {
-                // bilFiyat is TL
-                const val = parseFloat(item.value);
-                displayValue = '₺' + val.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            } else {
-                // Others are percent
-                displayValue = '%' + item.value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                chartLabels.push(item.label);
-                chartValues.push(item.value);
-            }
+            const displayValue = '%' + item.value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            chartLabels.push(item.label);
+            chartValues.push(item.value);
 
             tr.innerHTML = `
                 <td>${item.label}</td>
